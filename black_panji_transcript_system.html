@@ -700,9 +700,9 @@
     <!-- Internal audio mode panel -->
     <div id="internal-panel" style="display:none;">
       <div class="speaker-tip" style="background:#0d0020;border-color:#7b2fff44;color:#bb88ff;">
-        🔊 <strong style="color:#cc99ff;">Internal Audio Mode</strong> — captures audio directly from apps like TikTok, YouTube, or any other app playing on your device.<br><br>
+        🔊 <strong style="color:#cc99ff;">Internal Audio Mode</strong> — captures audio from apps like TikTok, YouTube, or any app playing on your device.<br><br>
         <span style="color:#9966dd;">
-          <strong>Android Chrome:</strong> tap START → choose <em>Share screen</em> → enable <em>Share audio</em> → confirm. TikTok audio will be transcribed directly.<br><br>
+          <strong>Android Chrome:</strong> tap START — mic activates automatically with all noise filters OFF. Play audio loud and hold your phone mic close to the speaker for best results. Boost the <em>Mic Boost</em> slider if needed.<br><br>
           <strong>iPhone/iPad Safari:</strong> Internal capture is blocked by iOS. Use <em>📢 Phone/Speaker</em> mode instead and hold phone near mic.
         </span>
       </div>
@@ -1017,7 +1017,7 @@ async function startInternalMode() {
   const dot   = document.getElementById('internal-dot');
   const label = document.getElementById('internal-status-label');
 
-  // Detect iOS — getDisplayMedia exists but audio capture is blocked
+  // Detect iOS — internal audio capture is blocked by iOS entirely
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   if (isIOS) {
     dot.className = 'error';
@@ -1027,7 +1027,45 @@ async function startInternalMode() {
     return;
   }
 
-  // Check API availability
+  // Detect Android — getDisplayMedia on Android Chrome does NOT reliably
+  // deliver audio tracks regardless of "Share audio" checkbox.
+  // Fall back to microphone + instruct user to use a Bluetooth loopback or
+  // speaker-near-mic approach, same as speaker mode.
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    dot.className = 'active';
+    label.textContent = '◉ ANDROID MODE — USING MIC (HOLD PHONE NEAR SPEAKER)';
+    label.style.color = '#cc99ff';
+    setStatus('◉ ANDROID: MIC ACTIVE — PLAY AUDIO NEAR PHONE MIC', 'active');
+    showToast('ANDROID TIP: PLAY AUDIO LOUD & HOLD PHONE MIC CLOSE ▸');
+
+    // Use mic with all processing disabled so external audio bleeds in cleanly
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl:  false,
+          googEchoCancellation: false,
+          googAutoGainControl: false,
+          googNoiseSuppression: false,
+          googHighpassFilter: false,
+        },
+        video: false,
+      });
+    } catch(e) {
+      dot.className = 'error';
+      label.textContent = '⚠ MICROPHONE PERMISSION DENIED';
+      label.style.color = 'var(--accent3)';
+      setStatus('⚠ MICROPHONE PERMISSION DENIED', 'error');
+      return;
+    }
+    await startAudio(micStream);
+    startRec();
+    return;
+  }
+
+  // ── DESKTOP: use getDisplayMedia (screen share + audio) ──
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
     dot.className = 'error';
     label.textContent = '⚠ SCREEN CAPTURE NOT SUPPORTED IN THIS BROWSER';
@@ -1041,16 +1079,15 @@ async function startInternalMode() {
 
   let displayStream;
   try {
-    // Ask user to share screen — they MUST tick "Share audio" / "Share tab audio"
     displayStream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,   // required by spec even if we don't use video
+      video: true,
       audio: {
         echoCancellation:  false,
         noiseSuppression:  false,
         autoGainControl:   false,
         suppressLocalAudioPlayback: false,
       },
-      preferCurrentTab: true, // Chrome 109+ — suggests current tab first
+      preferCurrentTab: true,
     });
   } catch (e) {
     if (e.name === 'NotAllowedError') {
@@ -1067,28 +1104,20 @@ async function startInternalMode() {
     return;
   }
 
-  // Check if audio track actually came through
   const audioTracks = displayStream.getAudioTracks();
   if (audioTracks.length === 0) {
-    // No audio — user forgot to tick "Share audio"
     displayStream.getTracks().forEach(t => t.stop());
     dot.className = 'error';
     label.textContent = '⚠ NO AUDIO CAPTURED — RETRY AND TICK "SHARE AUDIO"';
     label.style.color = 'var(--accent3)';
     setStatus('⚠ TICK "SHARE AUDIO" WHEN SHARING SCREEN', 'error');
-
-    // Show retry helper tip
     showToast('RETRY: TICK "SHARE AUDIO" IN THE SHARE DIALOG ⚠');
     return;
   }
 
-  // Stop the video track — we only need audio
   displayStream.getVideoTracks().forEach(t => t.stop());
-
-  // Build a clean audio-only stream
   micStream = new MediaStream(audioTracks);
 
-  // When user stops sharing externally, clean up
   audioTracks[0].addEventListener('ended', () => {
     if (isListening) {
       showToast('SCREEN SHARE ENDED — STOPPED');
