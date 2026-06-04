@@ -702,7 +702,7 @@
       <div class="speaker-tip" style="background:#0d0020;border-color:#7b2fff44;color:#bb88ff;">
         🔊 <strong style="color:#cc99ff;">Internal Audio Mode</strong> — captures audio directly from apps like TikTok, YouTube, or any other app playing on your device.<br><br>
         <span style="color:#9966dd;">
-          <strong>Android Chrome:</strong> tap START → choose <em>Share screen</em> → enable <em>Share audio</em> → confirm. TikTok audio will be transcribed directly.<br><br>
+          <strong>Android Chrome:</strong> tap START — mic activates automatically. Play your audio loud and hold the phone mic close to the speaker. Boost <em>Mic Boost</em> slider if needed.<br><br>
           <strong>iPhone/iPad Safari:</strong> Internal capture is blocked by iOS. Use <em>📢 Phone/Speaker</em> mode instead and hold phone near mic.
         </span>
       </div>
@@ -1026,8 +1026,10 @@ async function startInternalMode() {
   const dot   = document.getElementById('internal-dot');
   const label = document.getElementById('internal-status-label');
 
-  // Detect iOS — getDisplayMedia exists but audio capture is blocked
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  // Detect iOS
+  const isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
   if (isIOS) {
     dot.className = 'error';
     label.textContent = '⚠ iOS BLOCKS INTERNAL AUDIO — USE PHONE/SPEAKER MODE';
@@ -1036,7 +1038,21 @@ async function startInternalMode() {
     return;
   }
 
-  // Check API availability
+  // Android: getDisplayMedia never reliably returns audio tracks.
+  // SpeechRecognition must own the mic alone (no getUserMedia conflict).
+  // Use CSS waveform + direct recognition — same pattern as voice mode on Android.
+  if (isAndroid) {
+    dot.className = 'active';
+    label.textContent = '◉ ANDROID — MIC ACTIVE, PLAY AUDIO NEAR PHONE';
+    label.style.color = '#cc99ff';
+    setStatus('◉ ANDROID: MIC ACTIVE — PLAY AUDIO NEAR PHONE MIC', 'active');
+    showToast('PLAY AUDIO LOUD & HOLD MIC CLOSE ▸');
+    startAndroidWaveform();
+    startRec();
+    return;
+  }
+
+  // Desktop: check getDisplayMedia is available
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
     dot.className = 'error';
     label.textContent = '⚠ SCREEN CAPTURE NOT SUPPORTED IN THIS BROWSER';
