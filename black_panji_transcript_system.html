@@ -962,14 +962,23 @@ async function startAll() {
   if (!SpeechRecognition) return;
 
   const sourceMode = document.getElementById('source-select').value;
-  // voice | speaker | internal
 
-  // ── INTERNAL AUDIO MODE (Android Chrome screen share) ──
+  // ── INTERNAL AUDIO MODE ──
   if (sourceMode === 'internal') {
     return await startInternalMode();
   }
 
-  // ── VOICE or SPEAKER MODE (microphone) ──
+  // ── ANDROID: skip getUserMedia entirely — SpeechRecognition must own the mic alone ──
+  // Calling getUserMedia() alongside SpeechRecognition on Android Chrome causes the
+  // recognition engine to receive no audio — the waveform works but zero text is returned.
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    startAndroidWaveform(); // CSS-animated waveform, no mic stream needed
+    startRec();
+    return;
+  }
+
+  // ── DESKTOP: VOICE or SPEAKER MODE (microphone + Web Audio waveform) ──
   const isSpeakerMode = sourceMode === 'speaker';
 
   const audioConstraints = isSpeakerMode
@@ -1017,7 +1026,7 @@ async function startInternalMode() {
   const dot   = document.getElementById('internal-dot');
   const label = document.getElementById('internal-status-label');
 
-  // Detect iOS — internal audio capture is blocked by iOS entirely
+  // Detect iOS — getDisplayMedia exists but audio capture is blocked
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   if (isIOS) {
     dot.className = 'error';
@@ -1027,41 +1036,7 @@ async function startInternalMode() {
     return;
   }
 
-  // Android Chrome: getDisplayMedia never reliably returns audio tracks.
-  // Fall back to raw mic (all processing off) — user plays audio near mic.
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  if (isAndroid) {
-    dot.className = 'active';
-    label.textContent = '◉ ANDROID MODE — MIC ACTIVE (PLAY AUDIO NEAR MIC)';
-    label.style.color = '#cc99ff';
-    setStatus('◉ ANDROID: MIC ACTIVE — PLAY AUDIO NEAR PHONE MIC', 'active');
-    showToast('ANDROID: PLAY AUDIO LOUD & HOLD MIC CLOSE ▸');
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl:  false,
-          googEchoCancellation: false,
-          googAutoGainControl: false,
-          googNoiseSuppression: false,
-          googHighpassFilter: false,
-        },
-        video: false,
-      });
-    } catch(e) {
-      dot.className = 'error';
-      label.textContent = '⚠ MICROPHONE PERMISSION DENIED';
-      label.style.color = 'var(--accent3)';
-      setStatus('⚠ MICROPHONE PERMISSION DENIED', 'error');
-      return;
-    }
-    await startAudio(micStream);
-    startRec();
-    return;
-  }
-
-  // Desktop: use getDisplayMedia (screen share + audio)
+  // Check API availability
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
     dot.className = 'error';
     label.textContent = '⚠ SCREEN CAPTURE NOT SUPPORTED IN THIS BROWSER';
@@ -1138,15 +1113,51 @@ async function startInternalMode() {
   startRec();
 }
 
+// ── Android: CSS-animated waveform (no getUserMedia — avoids mic conflict) ──
+let androidWaveActive = false;
+let androidWaveFrame  = null;
+
+function startAndroidWaveform() {
+  androidWaveActive = true;
+  function draw() {
+    if (!androidWaveActive) return;
+    androidWaveFrame = requestAnimationFrame(draw);
+    const W = canvas.width, H = canvas.height;
+    ctx2d.clearRect(0, 0, W, H);
+    const dpr   = window.devicePixelRatio || 1;
+    const barW  = (W - (BAR_COUNT - 1) * 2 * dpr) / BAR_COUNT;
+    const maxH  = H * 0.92;
+    const cY    = H / 2;
+    const t     = Date.now() / 400;
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const wave  = Math.sin(t + i * 0.4) * 0.4 + Math.sin(t * 1.7 + i * 0.7) * 0.2 + 0.15;
+      const h     = Math.max(2 * dpr, wave * maxH);
+      const x     = i * (barW + 2 * dpr);
+      const frac  = i / (BAR_COUNT - 1);
+      const r     = Math.round(frac * 123);
+      const g     = Math.round(240 - frac * 193);
+      ctx2d.fillStyle = `rgba(${r},${g},255,0.75)`;
+      ctx2d.beginPath();
+      ctx2d.roundRect(x, cY - h / 2, barW, h, 2 * dpr);
+      ctx2d.fill();
+    }
+  }
+  draw();
+}
+
+function stopAndroidWaveform() {
+  androidWaveActive = false;
+  if (androidWaveFrame) { cancelAnimationFrame(androidWaveFrame); androidWaveFrame = null; }
+}
+
 function startRec() {
   const lang       = elLangSel.value;
   const continuous = elModeSel.value === 'continuous';
+  const isAndroid  = /Android/i.test(navigator.userAgent);
 
-  // Android Chrome: continuous=true silently kills onresult — engine fires onend
-  // immediately without ever returning text. Force continuous=false and use the
-  // restart loop instead, which is reliable on Android.
-  const isAndroid = /Android/i.test(navigator.userAgent);
-
+  // Android Chrome: continuous=true silently kills onresult.
+  // The recognition engine fires onend immediately with no text.
+  // Fix: force continuous=false and use the restart loop instead.
   recognition = new SpeechRecognition();
   recognition.lang             = lang;
   recognition.continuous       = isAndroid ? false : true;
@@ -1166,10 +1177,8 @@ function startRec() {
 
   recognition.onresult = (event) => {
     let interimText = '';
-
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript;
-
       if (event.results[i].isFinal) {
         const cleaned = transcript.trim();
         if (cleaned) appendFinal(cleaned);
@@ -1178,7 +1187,6 @@ function startRec() {
         interimText += transcript;
       }
     }
-
     elInterim.textContent = interimText ? '▸ ' + interimText : '';
     elBox.scrollTop = elBox.scrollHeight;
   };
@@ -1187,11 +1195,9 @@ function startRec() {
     if (e.error === 'no-speech') return;
     if (e.error === 'aborted')   return;
     if (e.error === 'network') {
-      // Android often fires network error briefly — just restart
+      // Android briefly fires network errors — silently restart
       if (shouldRestart && isListening) {
-        setTimeout(() => {
-          if (isListening) { try { recognition.start(); } catch(_) {} }
-        }, 300);
+        setTimeout(() => { if (isListening) { try { recognition.start(); } catch(_) {} } }, 500);
       }
       return;
     }
@@ -1206,12 +1212,10 @@ function startRec() {
   recognition.onend = () => {
     elInterim.textContent = '';
     if (shouldRestart && isListening) {
-      // Android needs a slightly longer gap between sessions
-      const delay = isAndroid ? 250 : 80;
+      // Android needs a longer gap — 300ms prevents the engine from choking
+      const delay = isAndroid ? 300 : 80;
       setTimeout(() => {
-        if (isListening) {
-          try { recognition.start(); } catch(_) {}
-        }
+        if (isListening) { try { recognition.start(); } catch(_) {} }
       }, delay);
     } else {
       onStopped();
@@ -1235,6 +1239,7 @@ function stopAll() {
     try { recognition.stop(); } catch(_) {}
     recognition = null;
   }
+  stopAndroidWaveform();
   stopAudio();
 }
 
