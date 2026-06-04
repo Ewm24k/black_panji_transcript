@@ -700,9 +700,9 @@
     <!-- Internal audio mode panel -->
     <div id="internal-panel" style="display:none;">
       <div class="speaker-tip" style="background:#0d0020;border-color:#7b2fff44;color:#bb88ff;">
-        🔊 <strong style="color:#cc99ff;">Internal Audio Mode</strong> — captures audio from apps like TikTok, YouTube, or any app playing on your device.<br><br>
+        🔊 <strong style="color:#cc99ff;">Internal Audio Mode</strong> — captures audio directly from apps like TikTok, YouTube, or any other app playing on your device.<br><br>
         <span style="color:#9966dd;">
-          <strong>Android Chrome:</strong> tap START — mic activates automatically with all noise filters OFF. Play audio loud and hold your phone mic close to the speaker for best results. Boost the <em>Mic Boost</em> slider if needed.<br><br>
+          <strong>Android Chrome:</strong> tap START → choose <em>Share screen</em> → enable <em>Share audio</em> → confirm. TikTok audio will be transcribed directly.<br><br>
           <strong>iPhone/iPad Safari:</strong> Internal capture is blocked by iOS. Use <em>📢 Phone/Speaker</em> mode instead and hold phone near mic.
         </span>
       </div>
@@ -1027,19 +1027,15 @@ async function startInternalMode() {
     return;
   }
 
-  // Detect Android — getDisplayMedia on Android Chrome does NOT reliably
-  // deliver audio tracks regardless of "Share audio" checkbox.
-  // Fall back to microphone + instruct user to use a Bluetooth loopback or
-  // speaker-near-mic approach, same as speaker mode.
+  // Android Chrome: getDisplayMedia never reliably returns audio tracks.
+  // Fall back to raw mic (all processing off) — user plays audio near mic.
   const isAndroid = /Android/i.test(navigator.userAgent);
   if (isAndroid) {
     dot.className = 'active';
-    label.textContent = '◉ ANDROID MODE — USING MIC (HOLD PHONE NEAR SPEAKER)';
+    label.textContent = '◉ ANDROID MODE — MIC ACTIVE (PLAY AUDIO NEAR MIC)';
     label.style.color = '#cc99ff';
     setStatus('◉ ANDROID: MIC ACTIVE — PLAY AUDIO NEAR PHONE MIC', 'active');
-    showToast('ANDROID TIP: PLAY AUDIO LOUD & HOLD PHONE MIC CLOSE ▸');
-
-    // Use mic with all processing disabled so external audio bleeds in cleanly
+    showToast('ANDROID: PLAY AUDIO LOUD & HOLD MIC CLOSE ▸');
     try {
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -1065,7 +1061,7 @@ async function startInternalMode() {
     return;
   }
 
-  // ── DESKTOP: use getDisplayMedia (screen share + audio) ──
+  // Desktop: use getDisplayMedia (screen share + audio)
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
     dot.className = 'error';
     label.textContent = '⚠ SCREEN CAPTURE NOT SUPPORTED IN THIS BROWSER';
@@ -1079,15 +1075,16 @@ async function startInternalMode() {
 
   let displayStream;
   try {
+    // Ask user to share screen — they MUST tick "Share audio" / "Share tab audio"
     displayStream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
+      video: true,   // required by spec even if we don't use video
       audio: {
         echoCancellation:  false,
         noiseSuppression:  false,
         autoGainControl:   false,
         suppressLocalAudioPlayback: false,
       },
-      preferCurrentTab: true,
+      preferCurrentTab: true, // Chrome 109+ — suggests current tab first
     });
   } catch (e) {
     if (e.name === 'NotAllowedError') {
@@ -1104,20 +1101,28 @@ async function startInternalMode() {
     return;
   }
 
+  // Check if audio track actually came through
   const audioTracks = displayStream.getAudioTracks();
   if (audioTracks.length === 0) {
+    // No audio — user forgot to tick "Share audio"
     displayStream.getTracks().forEach(t => t.stop());
     dot.className = 'error';
     label.textContent = '⚠ NO AUDIO CAPTURED — RETRY AND TICK "SHARE AUDIO"';
     label.style.color = 'var(--accent3)';
     setStatus('⚠ TICK "SHARE AUDIO" WHEN SHARING SCREEN', 'error');
+
+    // Show retry helper tip
     showToast('RETRY: TICK "SHARE AUDIO" IN THE SHARE DIALOG ⚠');
     return;
   }
 
+  // Stop the video track — we only need audio
   displayStream.getVideoTracks().forEach(t => t.stop());
+
+  // Build a clean audio-only stream
   micStream = new MediaStream(audioTracks);
 
+  // When user stops sharing externally, clean up
   audioTracks[0].addEventListener('ended', () => {
     if (isListening) {
       showToast('SCREEN SHARE ENDED — STOPPED');
@@ -1137,10 +1142,15 @@ function startRec() {
   const lang       = elLangSel.value;
   const continuous = elModeSel.value === 'continuous';
 
+  // Android Chrome: continuous=true silently kills onresult — engine fires onend
+  // immediately without ever returning text. Force continuous=false and use the
+  // restart loop instead, which is reliable on Android.
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
   recognition = new SpeechRecognition();
   recognition.lang             = lang;
-  recognition.continuous       = true;   // ALWAYS true — gives interim results reliably
-  recognition.interimResults   = true;   // show text WHILE speaking
+  recognition.continuous       = isAndroid ? false : true;
+  recognition.interimResults   = true;
   recognition.maxAlternatives  = 1;
 
   recognition.onstart = () => {
@@ -1154,7 +1164,6 @@ function startRec() {
     setStatus('◉ LISTENING — BLACK PANJI IS ACTIVE', 'active');
   };
 
-  // ── THE CRITICAL FIX: show interim text in real-time ──
   recognition.onresult = (event) => {
     let interimText = '';
 
@@ -1162,17 +1171,14 @@ function startRec() {
       const transcript = event.results[i][0].transcript;
 
       if (event.results[i].isFinal) {
-        // Confirmed word(s) — lock them into the transcript
         const cleaned = transcript.trim();
         if (cleaned) appendFinal(cleaned);
-        interimText = ''; // clear interim after final
+        interimText = '';
       } else {
-        // Still speaking — show it live
         interimText += transcript;
       }
     }
 
-    // Update interim display immediately
     elInterim.textContent = interimText ? '▸ ' + interimText : '';
     elBox.scrollTop = elBox.scrollHeight;
   };
@@ -1180,6 +1186,15 @@ function startRec() {
   recognition.onerror = (e) => {
     if (e.error === 'no-speech') return;
     if (e.error === 'aborted')   return;
+    if (e.error === 'network') {
+      // Android often fires network error briefly — just restart
+      if (shouldRestart && isListening) {
+        setTimeout(() => {
+          if (isListening) { try { recognition.start(); } catch(_) {} }
+        }, 300);
+      }
+      return;
+    }
     if (e.error === 'not-allowed') {
       setStatus('⚠ MICROPHONE PERMISSION DENIED', 'error');
       shouldRestart = false;
@@ -1191,12 +1206,13 @@ function startRec() {
   recognition.onend = () => {
     elInterim.textContent = '';
     if (shouldRestart && isListening) {
-      // Seamless restart — no gap
+      // Android needs a slightly longer gap between sessions
+      const delay = isAndroid ? 250 : 80;
       setTimeout(() => {
         if (isListening) {
           try { recognition.start(); } catch(_) {}
         }
-      }, 80);
+      }, delay);
     } else {
       onStopped();
     }
