@@ -1270,6 +1270,19 @@ function onStopped() {
 // ─────────────────────────────────────────────
 //  Append confirmed text block
 // ─────────────────────────────────────────────
+// ── Line buffer: accumulate finals; seal into a new block after 8s silence ──
+let lineBuffer      = '';       // words collected so far in current line
+let lineTimer       = null;     // setTimeout handle for the 8-second seal
+let activeBlock     = null;     // the DOM .ts-block being typed into
+const LINE_GAP_MS   = 8000;     // seal line after this many ms of silence
+
+function sealLine() {
+  clearTimeout(lineTimer);
+  lineTimer   = null;
+  activeBlock = null;
+  lineBuffer  = '';
+}
+
 function appendFinal(text) {
   if (!text) return;
 
@@ -1278,16 +1291,29 @@ function appendFinal(text) {
   elWords.textContent = wordCount;
   fullText += (fullText ? ' ' : '') + text;
 
-  const ts   = new Date().toTimeString().slice(0,8);
-  const lang = elLangSel.options[elLangSel.selectedIndex].text;
+  // ── Add text to current open block, or create a new one ──
+  if (!activeBlock) {
+    // No open block — start a fresh line
+    const ts   = new Date().toTimeString().slice(0, 8);
+    const lang = elLangSel.options[elLangSel.selectedIndex].text;
+    activeBlock = document.createElement('div');
+    activeBlock.className = 'ts-block';
+    activeBlock.innerHTML = `
+      <div class="ts">${ts} · ${escHtml(lang)}</div>
+      <div class="txt"></div>
+    `;
+    elContent.appendChild(activeBlock);
+    lineBuffer = '';
+  }
 
-  const block = document.createElement('div');
-  block.className = 'ts-block';
-  block.innerHTML = `
-    <div class="ts">${ts} · ${escHtml(lang)}</div>
-    <div class="txt">${escHtml(text)}</div>
-  `;
-  elContent.appendChild(block);
+  // Append words into the open block's .txt div
+  lineBuffer += (lineBuffer ? ' ' : '') + text;
+  activeBlock.querySelector('.txt').textContent = lineBuffer;
+
+  // Reset the 8-second silence timer — seal when user stops speaking
+  clearTimeout(lineTimer);
+  lineTimer = setTimeout(sealLine, LINE_GAP_MS);
+
   elBox.scrollTop = elBox.scrollHeight;
 }
 
@@ -1305,6 +1331,7 @@ function clearTranscript() {
   fullText  = '';
   wordCount = 0;
   elWords.textContent = '0';
+  sealLine(); // reset line buffer
   if (!isListening) setStatus('SYSTEM IDLE — READY TO LISTEN', '');
 }
 
