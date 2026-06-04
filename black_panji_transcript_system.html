@@ -1213,7 +1213,7 @@ function startRec() {
     if (e.error === 'network') {
       // Android briefly fires network errors — silently restart
       if (shouldRestart && isListening) {
-        setTimeout(() => { if (isListening) { try { recognition.start(); } catch(_) {} } }, 500);
+        setTimeout(() => { if (isListening) { try { recognition.start(); } catch(_) {} } }, 150);
       }
       return;
     }
@@ -1228,11 +1228,19 @@ function startRec() {
   recognition.onend = () => {
     elInterim.textContent = '';
     if (shouldRestart && isListening) {
-      // Android needs a longer gap — 300ms prevents the engine from choking
-      const delay = isAndroid ? 300 : 80;
-      setTimeout(() => {
-        if (isListening) { try { recognition.start(); } catch(_) {} }
-      }, delay);
+      // Overlap restart: spin up next instance immediately so no words fall
+      // into the gap. On Android a tiny delay avoids engine conflict.
+      const delay = isAndroid ? 150 : 0;
+      if (delay === 0) {
+        // Desktop: start immediately inline — zero gap
+        try { recognition.start(); } catch(_) {
+          // If that throws (already started), just let onend fire again
+        }
+      } else {
+        setTimeout(() => {
+          if (isListening) { try { recognition.start(); } catch(_) {} }
+        }, delay);
+      }
     } else {
       onStopped();
     }
@@ -1244,6 +1252,28 @@ function startRec() {
     setStatus('⚠ COULD NOT START — CHECK MIC PERMISSION', 'error');
   }
 }
+
+// ── Pre-warm: create a dummy SpeechRecognition instance on first user gesture
+//    so the browser negotiates mic permission + engine init before the user
+//    actually presses START. This eliminates the cold-start delay on first use.
+let _primed = false;
+function primeRecognition() {
+  if (_primed || !SpeechRecognition) return;
+  _primed = true;
+  try {
+    const p = new SpeechRecognition();
+    p.lang            = elLangSel.value;
+    p.continuous      = false;
+    p.interimResults  = false;
+    p.maxAlternatives = 1;
+    p.onend = () => {};
+    p.onerror = () => {};
+    p.start();
+    // Stop it immediately — we just wanted the engine to wake up
+    setTimeout(() => { try { p.stop(); } catch(_) {} }, 120);
+  } catch(_) {}
+}
+document.addEventListener('pointerdown', primeRecognition, { once: true });
 
 // ─────────────────────────────────────────────
 //  Stop everything
@@ -1364,14 +1394,14 @@ elLangSel.addEventListener('change', () => {
   if (!isListening) return;
   shouldRestart = false;
   if (recognition) { try { recognition.stop(); } catch(_) {} recognition = null; }
-  setTimeout(startRec, 300);
+  setTimeout(startRec, 50);
 });
 
 elModeSel.addEventListener('change', () => {
   if (!isListening) return;
   shouldRestart = false;
   if (recognition) { try { recognition.stop(); } catch(_) {} recognition = null; }
-  setTimeout(startRec, 300);
+  setTimeout(startRec, 50);
 });
 
 // ── Source mode toggle ──
@@ -1399,7 +1429,7 @@ document.getElementById('source-select').addEventListener('change', function() {
   if (isListening) {
     shouldRestart = false;
     stopAll();
-    setTimeout(startAll, 400);
+    setTimeout(startAll, 80);
   }
 });
 
