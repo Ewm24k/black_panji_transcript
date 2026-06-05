@@ -326,6 +326,58 @@
     to   { opacity:1; color:var(--text); }
   }
 
+  /* ── Block action bar ── */
+  .block-actions {
+    display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center;
+  }
+  .btn-block {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.05em;
+    padding: 3px 8px; border-radius: 3px; border: 1px solid #ffffff22;
+    cursor: pointer; background: #0a0a1280; color: var(--dim);
+    transition: all 0.15s; display: flex; align-items: center; gap: 4px;
+    white-space: nowrap;
+  }
+  .btn-block:hover { border-color: var(--accent); color: var(--accent); background: #00f0ff11; }
+  .btn-translate { border-color: #9966dd55; color: #9966dd; }
+  .btn-translate:hover { border-color: #cc99ff; color: #cc99ff; background: #9966dd11; }
+  .btn-edit     { border-color: #00f0ff44; }
+  .btn-done     { border-color: #00ff8844; color: #00ff88; background: #00ff8811; }
+  .btn-done:hover { background: #00ff8822; }
+
+  /* translated result block */
+  .translated-txt {
+    margin-top: 6px; padding: 6px 10px;
+    border-left: 2px solid #9966dd66;
+    color: #cc99ff; font-size: 0.82rem; line-height: 1.55;
+    animation: wordIn 0.3s ease-out;
+  }
+  .translated-lang {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem; color: #9966dd99; margin-bottom: 3px;
+  }
+  .translating-spinner {
+    color: #9966dd66; font-style: italic; font-size: 0.75rem;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+
+  /* edit textarea */
+  .edit-area {
+    width: 100%; box-sizing: border-box;
+    background: #0d0d1a; border: 1px solid var(--accent);
+    color: var(--text); font-family: inherit; font-size: 0.85rem;
+    line-height: 1.55; padding: 6px 8px; border-radius: 4px;
+    resize: vertical; min-height: 48px; outline: none;
+    margin-top: 4px;
+  }
+  .translate-lang-sel {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.6rem;
+    background: #0a0a12; border: 1px solid #9966dd55; color: #cc99ff;
+    padding: 3px 6px; border-radius: 3px; cursor: pointer;
+    max-width: 160px;
+  }
+
   .interim-line {
     color: var(--accent); opacity: 0.7;
     font-style: italic; min-height: 1.5em;
@@ -1253,6 +1305,162 @@ function startRec() {
   }
 }
 
+// ─────────────────────────────────────────────
+//  Language options map (mirrors the <select> in the UI)
+// ─────────────────────────────────────────────
+const LANG_MAP = [
+  // label, speech-recognition value, MyMemory langpair target code
+  ['Bahasa Melayu (Malaysia)',    'ms-MY', 'ms'],
+  ['Bahasa Indonesia',            'id-ID', 'id'],
+  ['English (US)',                'en-US', 'en'],
+  ['English (UK)',                'en-GB', 'en'],
+  ['English (Australia)',        'en-AU', 'en'],
+  ['English (India)',            'en-IN', 'en'],
+  ['ภาษาไทย (Thai)',              'th-TH', 'th'],
+  ['Tiếng Việt (Vietnamese)',    'vi-VN', 'vi'],
+  ['Filipino / Tagalog',         'tl-PH', 'tl'],
+  ['中文 普通话 (Mandarin CN)',     'zh-CN', 'zh'],
+  ['中文 繁體 (Traditional TW)',    'zh-TW', 'zh-TW'],
+  ['粵語 (Cantonese HK)',          'zh-HK', 'zh'],
+  ['日本語 (Japanese)',            'ja-JP', 'ja'],
+  ['한국어 (Korean)',               'ko-KR', 'ko'],
+  ['हिन्दी (Hindi)',               'hi-IN', 'hi'],
+  ['தமிழ் (Tamil)',               'ta-IN', 'ta'],
+  ['తెలుగు (Telugu)',             'te-IN', 'te'],
+  ['বাংলা (Bengali)',             'bn-BD', 'bn'],
+  ['اردو (Urdu)',                 'ur-PK', 'ur'],
+  ['العربية (Arabic)',            'ar-SA', 'ar'],
+  ['فارسی (Persian)',             'fa-IR', 'fa'],
+  ['Türkçe (Turkish)',            'tr-TR', 'tr'],
+  ['Français (French)',           'fr-FR', 'fr'],
+  ['Deutsch (German)',            'de-DE', 'de'],
+  ['Español (Spain)',             'es-ES', 'es'],
+  ['Español (Mexico)',            'es-MX', 'es'],
+  ['Português (Brazil)',          'pt-BR', 'pt'],
+  ['Português (Portugal)',        'pt-PT', 'pt'],
+  ['Italiano (Italian)',          'it-IT', 'it'],
+  ['Русский (Russian)',           'ru-RU', 'ru'],
+  ['Nederlands (Dutch)',          'nl-NL', 'nl'],
+  ['Polski (Polish)',             'pl-PL', 'pl'],
+  ['Svenska (Swedish)',           'sv-SE', 'sv'],
+  ['Dansk (Danish)',              'da-DK', 'da'],
+  ['Suomi (Finnish)',             'fi-FI', 'fi'],
+  ['Norsk (Norwegian)',           'nb-NO', 'no'],
+  ['Українська (Ukrainian)',      'uk-UA', 'uk'],
+  ['Ελληνικά (Greek)',            'el-GR', 'el'],
+  ['Čeština (Czech)',             'cs-CZ', 'cs'],
+  ['Română (Romanian)',           'ro-RO', 'ro'],
+  ['Magyar (Hungarian)',          'hu-HU', 'hu'],
+];
+
+function buildLangOptions() {
+  // Default to ms-MY (Bahasa Melayu) since that's the primary target
+  return LANG_MAP.map(([label, , code]) =>
+    `<option value="${code}" ${code === 'ms' ? 'selected' : ''}>${label}</option>`
+  ).join('');
+}
+
+// ── MyMemory free translation (no API key, supports ms-MY) ──
+async function myMemoryTranslate(text, targetCode) {
+  // Detect source language from the current recognition language
+  const srcLang = elLangSel.value.split('-')[0];   // e.g. "en" from "en-US"
+  const pair    = `${srcLang}|${targetCode}`;
+  const url     = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`;
+  const res  = await fetch(url);
+  const data = await res.json();
+  if (data.responseStatus === 200) {
+    return data.responseData.translatedText;
+  }
+  throw new Error(data.responseDetails || 'Translation failed');
+}
+
+// ── Translate button handler ──
+async function translateBlock(btn) {
+  const block      = btn.closest('.ts-block');
+  const txtEl      = block.querySelector('.txt');
+  const targetCode = block.querySelector('.translate-lang-sel').value;
+  const text       = txtEl.textContent.trim();
+  if (!text) return;
+
+  // Remove old translation if present
+  const old = block.querySelector('.translated-txt');
+  if (old) old.remove();
+
+  // Show spinner
+  const spinner = document.createElement('div');
+  spinner.className = 'translated-txt';
+  spinner.innerHTML = '<div class="translating-spinner">⟳ TRANSLATING…</div>';
+  block.appendChild(spinner);
+  btn.disabled = true;
+
+  try {
+    const result   = await myMemoryTranslate(text, targetCode);
+    const langName = LANG_MAP.find(([,, c]) => c === targetCode)?.[0] || targetCode;
+    spinner.innerHTML = `
+      <div class="translated-lang">⟳ → ${langName.toUpperCase()}</div>
+      <div>${escHtml(result)}</div>
+    `;
+  } catch (e) {
+    spinner.innerHTML = `<div class="translating-spinner">⚠ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Edit button handler ──
+function editBlock(btn) {
+  const block = btn.closest('.ts-block');
+  const txtEl = block.querySelector('.txt');
+  const current = txtEl.textContent;
+
+  // Hide the .txt div
+  txtEl.style.display = 'none';
+
+  // Create textarea
+  const area = document.createElement('textarea');
+  area.className = 'edit-area';
+  area.value = current;
+  area.rows = Math.max(2, Math.ceil(current.length / 60));
+  block.insertBefore(area, txtEl.nextSibling);
+  area.focus();
+
+  // Swap edit btn → done btn
+  btn.textContent = '✔ DONE';
+  btn.classList.replace('btn-edit', 'btn-done');
+  btn.onclick = () => doneEdit(btn);
+}
+
+// ── Done button handler ──
+function doneEdit(btn) {
+  const block = btn.closest('.ts-block');
+  const txtEl = block.querySelector('.txt');
+  const area  = block.querySelector('.edit-area');
+  if (!area) return;
+
+  // Commit edit
+  const newText = area.value.trim();
+  txtEl.textContent = newText;
+  txtEl.style.display = '';
+
+  // Update lineBuffer if this is the active block
+  if (block === activeBlock) lineBuffer = newText;
+
+  // Also update fullText
+  fullText = Array.from(elContent.querySelectorAll('.ts-block .txt'))
+    .map(el => el.textContent.trim()).filter(Boolean).join(' ');
+
+  // Remove textarea
+  area.remove();
+
+  // Swap done btn → edit btn, then auto-hide done btn after 2s
+  btn.textContent = '✔ SAVED';
+  btn.classList.replace('btn-done', 'btn-edit');
+  setTimeout(() => {
+    btn.textContent = '✎ EDIT';
+    btn.onclick = () => editBlock(btn);
+  }, 1500);
+}
+
 // ── Pre-warm: create a dummy SpeechRecognition instance on first user gesture
 //    so the browser negotiates mic permission + engine init before the user
 //    actually presses START. This eliminates the cold-start delay on first use.
@@ -1331,6 +1539,11 @@ function appendFinal(text) {
     activeBlock.innerHTML = `
       <div class="ts">${ts} · ${escHtml(lang)}</div>
       <div class="txt"></div>
+      <div class="block-actions">
+        <select class="translate-lang-sel">${buildLangOptions()}</select>
+        <button class="btn-block btn-translate" onclick="translateBlock(this)">⟳ TRANSLATE</button>
+        <button class="btn-block btn-edit" onclick="editBlock(this)">✎ EDIT</button>
+      </div>
     `;
     elContent.appendChild(activeBlock);
     lineBuffer = '';
