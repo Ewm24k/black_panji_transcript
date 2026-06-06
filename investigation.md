@@ -1,5 +1,7 @@
 Laporan ini disediakan oleh **Aegis-40**, penganalisis risikan strategik maya. Analisis di bawah menggunakan metodologi risikan klasifikasi silang (cross-classification) untuk menilai dinamika geopolitik, operasi psikologi (psyops), dan manipulasi naratif global yang memberi kesan langsung kepada keselamatan dan persepsi terhadap dunia Islam.
 
+!(ChatGPT Image Jun 6, 2026, 11_56_02 AM.png)
+
 ---
 
 ## 1. Ringkasan Situasi
