@@ -429,6 +429,37 @@ body::after {
 }
 .toast-inv.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
+/* ── IMAGES IN READER ── */
+.md-figure {
+  margin: 20px 0; text-align: center;
+}
+.md-img {
+  max-width: 100%; border-radius: 6px;
+  border: 1px solid #00f0ff22;
+  box-shadow: 0 4px 24px #00000055;
+  display: block; margin: 0 auto;
+  transition: transform .2s;
+  cursor: zoom-in;
+}
+.md-img:hover { transform: scale(1.01); }
+.md-img.img-error {
+  display: inline-block;
+  padding: 12px 18px;
+  background: #ff2d7811;
+  border: 1px dashed #ff2d7855;
+  border-radius: 4px;
+  color: var(--accent3);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .62rem;
+  cursor: default;
+}
+.md-img.img-error::after { content: '⚠ IMAGE NOT FOUND'; }
+.md-caption {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .6rem; color: var(--dim);
+  letter-spacing: .08em; margin-top: 7px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width:5px; }
 ::-webkit-scrollbar-track { background:transparent; }
@@ -586,7 +617,7 @@ async function fetchIntelFiles() {
 
   // Fetch each .txt in parallel
   const results = await Promise.allSettled(
-    list.filter(f => typeof f === 'string' && f.endsWith('.txt'))
+    list.filter(f => typeof f === 'string' && (f.endsWith('.txt') || f.endsWith('.md')))
         .map(async name => {
           const r = await fetch(name + '?_=' + Date.now());
           if (!r.ok) throw new Error(name + ' not found');
@@ -703,6 +734,9 @@ function renderMarkdown(md) {
   const inlineFormat = str =>
     str
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      // inline image: ![alt](src)
+      .replace(/!\[([^\]]*?)\]\(([^)]+?)\)/g, (_, alt, src) =>
+        `<img src="${src}" alt="${alt}" class="md-img" loading="lazy" onerror="this.classList.add('img-error')">`)
       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
       .replace(/\*(.+?)\*/g,'<em>$1</em>')
       .replace(/`(.+?)`/g,'<code>$1</code>');
@@ -712,10 +746,23 @@ function renderMarkdown(md) {
 
     if (!t) { closeList(); html += '<br>'; return; }
 
+    // Standalone image line: ![alt](src)
+    if (/^!\[/.test(t) && /\)$/.test(t)) {
+      const m = t.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+      if (m) {
+        closeList();
+        html += `<figure class="md-figure">
+          <img src="${m[2]}" alt="${m[1]}" class="md-img" loading="lazy" onerror="this.classList.add('img-error')">
+          ${m[1] ? `<figcaption class="md-caption">${m[1]}</figcaption>` : ''}
+        </figure>`;
+        return;
+      }
+    }
+
     // Headings
     if (/^### /.test(t)) { closeList(); html += `<h3>${inlineFormat(t.slice(4))}</h3>`; return; }
-    if (/^## /. test(t)) { closeList(); html += `<h2>${inlineFormat(t.slice(3))}</h2>`; return; }
-    if (/^# /.test(t))  { closeList(); html += `<h1>${inlineFormat(t.slice(2))}</h1>`; return; }
+    if (/^## /.test(t))  { closeList(); html += `<h2>${inlineFormat(t.slice(3))}</h2>`; return; }
+    if (/^# /.test(t))   { closeList(); html += `<h1>${inlineFormat(t.slice(2))}</h1>`; return; }
 
     // HR
     if (/^---+$/.test(t)) { closeList(); html += '<hr>'; return; }
