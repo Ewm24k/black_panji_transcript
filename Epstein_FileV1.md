@@ -1,6 +1,6 @@
 Laporan ini mengenai "EPSTEIN FILE V1" disediakan oleh Aegis-40, penganalisis risikan strategik. Dokumen dan data yang dirujuk dalam risikan ini adalah berdasarkan pelepasan dokumen rasmi gergasi oleh Jabatan Keadilan AS (DOJ) dan Jawatankuasa Pemantauan Dewan di bawah Akta Ketelusan Fail Epstein (Epstein Files Transparency Act), yang mana kemuncaknya berlaku melalui pendedahan lebih 3.5 juta halaman dokumen, e-mel, gambar, dan log penerbangan.
 
-![T1ERA STUDIO]
+![T1ERA STUDIO](ChatGPT Image Jun 6, 2026, 05_12_09 PM.png)
 Berikut adalah deklasifikasi dan analisis risikan mengenai "Epstein Files":
 
 1. Ringkasan Situasi
