@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>INVESTIGATION — Black Panji</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #020408;
+  --panel:   #040d15;
+  --border:  #0ff3;
+  --accent:  #00f0ff;
+  --accent2: #7b2fff;
+  --accent3: #ff2d78;
+  --gold:    #f0c040;
+  --text:    #c8eeff;
+  --dim:     #3a6070;
+  --glow:    0 0 20px #00f0ff55, 0 0 60px #00f0ff22;
+  --glow2:   0 0 20px #7b2fff55;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Grid background */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(0,240,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg,rgba(0,240,255,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridMove 20s linear infinite;
+  pointer-events:none; z-index:0;
+}
+body::after {
+  content:'';
+  position:fixed; top:-50%; left:-50%;
+  width:200%; height:200%;
+  background:
+    radial-gradient(ellipse at 70% 15%, #7b2fff0b 0%, transparent 50%),
+    radial-gradient(ellipse at 15% 85%, #00f0ff07 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+  animation: breathe 9s ease-in-out infinite alternate;
+}
+@keyframes gridMove { to { transform: translateY(40px); } }
+@keyframes breathe  { from{opacity:.5} to{opacity:1} }
+
+.scanlines {
+  position:fixed; inset:0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);
+  pointer-events:none; z-index:100;
+}
+
+/* ════ SIDE NAV (same as main) ════ */
+#sidenav-overlay {
+  position:fixed; inset:0; z-index:900;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(3px);
+  opacity:0; pointer-events:none; transition:opacity .3s;
+}
+#sidenav-overlay.open { opacity:1; pointer-events:all; }
+
+#sidenav {
+  position:fixed; left:0; top:0; bottom:0;
+  width:220px; z-index:901;
+  background:#020810;
+  border-right:1px solid #00f0ff22;
+  display:flex; flex-direction:column;
+  transform:translateX(-100%);
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+  box-shadow:4px 0 30px #00f0ff0a;
+}
+#sidenav.open { transform:translateX(0); }
+.sidenav-header {
+  padding:28px 20px 18px;
+  border-bottom:1px solid #00f0ff18;
+  display:flex; align-items:center; gap:10px;
+}
+.sidenav-header svg { width:28px; height:28px; flex-shrink:0; }
+.sidenav-header span {
+  font-family:'Orbitron',monospace;
+  font-size:.68rem; letter-spacing:.12em;
+  color:var(--accent); font-weight:700;
+}
+.sidenav-items { flex:1; padding:12px 0; overflow-y:auto; }
+.sn-item {
+  display:flex; align-items:center; gap:13px;
+  padding:13px 22px; cursor:pointer;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.72rem; letter-spacing:.08em;
+  color:var(--dim); text-decoration:none;
+  transition:all .18s; border-left:2px solid transparent;
+}
+.sn-item:hover, .sn-item.active {
+  color:var(--accent); border-left-color:var(--accent);
+  background:#00f0ff08;
+}
+.sn-item svg { width:18px; height:18px; flex-shrink:0; }
+.sidenav-footer {
+  padding:14px 20px;
+  border-top:1px solid #00f0ff18;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.55rem; color:#1a3040; letter-spacing:.06em; text-align:center;
+}
+#nav-toggle {
+  position:fixed; top:16px; left:16px; z-index:902;
+  width:38px; height:38px;
+  background:#020810; border:1px solid #00f0ff33;
+  border-radius:6px; cursor:pointer;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:5px;
+  transition:border-color .2s;
+}
+#nav-toggle:hover { border-color:var(--accent); }
+#nav-toggle span {
+  display:block; width:18px; height:1.5px;
+  background:var(--accent); border-radius:2px; transition:all .25s;
+}
+#nav-toggle.open span:nth-child(1) { transform:translateY(6.5px) rotate(45deg); }
+#nav-toggle.open span:nth-child(2) { opacity:0; }
+#nav-toggle.open span:nth-child(3) { transform:translateY(-6.5px) rotate(-45deg); }
+@media (max-width:480px) { #sidenav { width:78vw; } }
+
+/* ════ MAIN LAYOUT ════ */
+.page-wrap {
+  position:relative; z-index:1;
+  max-width:960px; margin:0 auto;
+  padding:20px 20px 60px;
+  padding-left: 20px;
+}
+
+/* ── PAGE HEADER ── */
+.page-header {
+  text-align:center;
+  padding:60px 0 36px;
+  position:relative;
+}
+.page-header::after {
+  content:'';
+  display:block; width:120px; height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  margin:14px auto 0;
+}
+.page-header .eyebrow {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.62rem; letter-spacing:.25em;
+  color:var(--accent2); margin-bottom:10px;
+}
+.page-header h1 {
+  font-family:'Orbitron',monospace;
+  font-size:clamp(1.4rem,5vw,2.4rem);
+  font-weight:900; letter-spacing:.15em;
+  color:var(--accent);
+  text-shadow: var(--glow);
+}
+.page-header .subtitle {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.65rem; color:var(--dim); letter-spacing:.12em;
+  margin-top:8px;
+}
+
+/* ── STATUS BAR ── */
+.status-bar {
+  display:flex; align-items:center; gap:10px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.6rem; letter-spacing:.1em; color:var(--dim);
+  border:1px solid #00f0ff11; border-radius:4px;
+  padding:8px 14px; background:#020d1800; margin-bottom:28px;
+}
+.status-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--accent); animation:blinkDot 1.4s infinite;
+  flex-shrink:0;
+}
+@keyframes blinkDot { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* ── LOADING STATE ── */
+.loading-state {
+  text-align:center; padding:48px 20px; margin-bottom:28px;
+}
+.loading-ring {
+  display:inline-block; width:36px; height:36px;
+  border:2px solid #00f0ff18;
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+  margin-bottom:12px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.64rem; letter-spacing:.14em; color:var(--dim);
+}
+
+/* ── GRID OF CARDS ── */
+.cards-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px,1fr));
+  gap:18px;
+}
+@media (max-width:520px) {
+  .cards-grid { grid-template-columns:1fr; }
+}
+
+/* ── INDIVIDUAL CARD ── */
+.inv-card {
+  border:1px solid #00f0ff1a;
+  border-radius:8px;
+  background:linear-gradient(135deg,#040d1888 0%,#060318aa 100%);
+  padding:20px;
+  cursor:pointer;
+  transition:all .22s;
+  position:relative; overflow:hidden;
+  backdrop-filter:blur(4px);
+}
+.inv-card::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent));
+  opacity:0; transition:opacity .22s;
+}
+.inv-card:hover {
+  border-color:#00f0ff44;
+  box-shadow:0 4px 30px #00f0ff0e, 0 0 0 1px #00f0ff11;
+  transform:translateY(-2px);
+}
+.inv-card:hover::before { opacity:1; }
+
+.card-tag {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.56rem; letter-spacing:.18em;
+  color:var(--accent2); margin-bottom:8px;
+  display:flex; align-items:center; gap:6px;
+}
+.card-tag::before {
+  content:''; display:block;
+  width:14px; height:1px; background:var(--accent2);
+}
+.card-title {
+  font-family:'Orbitron',monospace;
+  font-size:.82rem; font-weight:700;
+  color:var(--accent); letter-spacing:.06em;
+  margin-bottom:8px; line-height:1.4;
+}
+.card-preview {
+  font-size:.8rem; color:var(--dim); line-height:1.5;
+  display:-webkit-box; -webkit-line-clamp:3;
+  -webkit-box-orient:vertical; overflow:hidden;
+  margin-bottom:14px;
+}
+.card-meta {
+  display:flex; align-items:center; justify-content:space-between;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.57rem; color:#1e4a5a;
+}
+.card-open-btn {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.6rem; letter-spacing:.08em;
+  padding:4px 10px; border-radius:3px;
+  border:1px solid #00f0ff33; background:transparent;
+  color:var(--accent); cursor:pointer; transition:all .15s;
+}
+.card-open-btn:hover { background:#00f0ff15; border-color:var(--accent); }
+
+/* ── READER MODAL ── */
+#reader-overlay {
+  position:fixed; inset:0; z-index:800;
+  background:rgba(0,0,0,.75); backdrop-filter:blur(6px);
+  opacity:0; pointer-events:none; transition:opacity .28s;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:20px; overflow-y:auto;
+}
+#reader-overlay.open { opacity:1; pointer-events:all; }
+
+#reader-modal {
+  position:relative;
+  width:100%; max-width:760px;
+  margin:auto;
+  background:linear-gradient(160deg,#030c14 0%,#060318 100%);
+  border:1px solid #00f0ff22;
+  border-radius:10px;
+  transform:translateY(30px) scale(.98);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+#reader-overlay.open #reader-modal {
+  transform:translateY(0) scale(1);
+}
+
+.reader-header {
+  padding:22px 24px 16px;
+  border-bottom:1px solid #00f0ff15;
+  display:flex; align-items:flex-start; gap:14px;
+  background:linear-gradient(90deg,#00f0ff05,transparent);
+  position:sticky; top:0; z-index:10;
+  backdrop-filter:blur(10px);
+}
+.reader-header-icon {
+  width:36px; height:36px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--accent2); border-radius:4px;
+  color:var(--accent2);
+}
+.reader-header-icon svg { width:18px; height:18px; }
+.reader-title-block { flex:1; }
+.reader-eyebrow {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.56rem; letter-spacing:.2em; color:var(--accent2);
+  margin-bottom:4px;
+}
+.reader-title {
+  font-family:'Orbitron',monospace;
+  font-size:clamp(.9rem,3vw,1.2rem);
+  font-weight:700; color:var(--accent); letter-spacing:.05em;
+  line-height:1.3;
+}
+.reader-close {
+  width:34px; height:34px; flex-shrink:0;
+  background:transparent; border:1px solid #ffffff15;
+  border-radius:4px; cursor:pointer; color:var(--dim);
+  font-size:1.1rem; display:flex; align-items:center;
+  justify-content:center; transition:all .15s;
+}
+.reader-close:hover { border-color:var(--accent3); color:var(--accent3); }
+
+.reader-body {
+  padding:28px 28px 40px;
+  max-height:75vh; overflow-y:auto;
+}
+@media (max-width:520px) {
+  .reader-body { padding:18px 16px 32px; }
+}
+
+/* ── MARKDOWN-LIKE CONTENT RENDERING ── */
+.reader-content { line-height:1.75; }
+
+.reader-content h1, .reader-content h2 {
+  font-family:'Orbitron',monospace;
+  color:var(--accent); letter-spacing:.06em;
+  margin:28px 0 12px; line-height:1.3;
+  padding-bottom:6px;
+  border-bottom:1px solid #00f0ff1a;
+}
+.reader-content h1 { font-size:clamp(1rem,3vw,1.25rem); }
+.reader-content h2 { font-size:clamp(.85rem,2.5vw,1.05rem); color:#7adaff; }
+.reader-content h3 {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.82rem; color:var(--accent2);
+  letter-spacing:.1em; margin:20px 0 8px;
+}
+
+.reader-content p { margin-bottom:14px; font-size:.9rem; color:var(--text); }
+
+.reader-content strong {
+  color:var(--accent); font-weight:600;
+}
+.reader-content em { color:var(--accent2); font-style:italic; }
+
+.reader-content ul, .reader-content ol {
+  margin:10px 0 16px 20px;
+}
+.reader-content li {
+  margin-bottom:7px; font-size:.88rem; color:var(--text);
+  padding-left:4px;
+}
+.reader-content ul li::marker { color:var(--accent); }
+.reader-content ol li::marker {
+  font-family:'Share Tech Mono',monospace;
+  color:var(--accent2); font-size:.75rem;
+}
+
+.reader-content blockquote {
+  border-left:3px solid var(--gold);
+  padding:10px 16px; margin:18px 0;
+  background:#f0c04008; border-radius:0 4px 4px 0;
+  color:var(--gold);
+  font-family:'Share Tech Mono',monospace;
+  font-size:.78rem; letter-spacing:.04em;
+  line-height:1.6;
+}
+
+.reader-content hr {
+  border:none; border-top:1px solid #00f0ff15; margin:28px 0;
+}
+
+.reader-content code {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.78rem; color:var(--accent2);
+  background:#7b2fff15; padding:2px 6px; border-radius:3px;
+}
+
+/* Section dividers inside content */
+.content-section-tag {
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.56rem; letter-spacing:.2em;
+  color:var(--accent2); margin:24px 0 4px;
+}
+.content-section-tag::before {
+  content:''; display:block; width:20px; height:1px; background:var(--accent2);
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align:center; padding:60px 20px;
+}
+.empty-state .e-icon { font-size:2.5rem; opacity:.25; margin-bottom:14px; }
+.empty-state p {
+  font-family:'Share Tech Mono',monospace;
+  font-size:.68rem; color:var(--dim); letter-spacing:.1em;
+}
+
+/* ── TOAST ── */
+.toast-inv {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:#040d15; border:1px solid var(--accent);
+  padding:9px 20px; border-radius:4px; z-index:999;
+  font-family:'Share Tech Mono',monospace; font-size:.65rem;
+  color:var(--accent); letter-spacing:.08em;
+  opacity:0; transition:all .25s; pointer-events:none; white-space:nowrap;
+}
+.toast-inv.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#00f0ff22; border-radius:3px; }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="toast-inv" id="inv-toast"></div>
+
+<!-- ═══ SIDE NAV ═══ -->
+<div id="sidenav-overlay" onclick="closeNav()"></div>
+<nav id="sidenav">
+  <div class="sidenav-header">
+    <svg viewBox="0 0 46 46" fill="none">
+      <polygon points="23,2 43,13 43,33 23,44 3,33 3,13" stroke="#00f0ff" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <circle cx="23" cy="23" r="7" fill="#00f0ff18" stroke="#00f0ff" stroke-width="1.5"/>
+      <circle cx="23" cy="23" r="3" fill="#00f0ff"/>
+    </svg>
+    <span>BLACK PANJI</span>
+  </div>
+  <div class="sidenav-items">
+    <a class="sn-item" href="index.html" id="sn-voice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+        <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8"  y1="23" x2="16" y2="23"/>
+      </svg>
+      VOICE TX
+    </a>
+    <a class="sn-item active" href="investigation.html" id="sn-intel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="11" cy="11" r="7"/>
+        <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+        <line x1="11" y1="8" x2="11" y2="14"/>
+        <line x1="8"  y1="11" x2="14" y2="11"/>
+      </svg>
+      INVESTIGATION
+    </a>
+  </div>
+  <div class="sidenav-footer">AEGIS SYSTEM v2.0</div>
+</nav>
+<button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+
+<!-- ═══ MAIN PAGE ═══ -->
+<div class="page-wrap">
+
+  <header class="page-header">
+    <div class="eyebrow">▸ AEGIS-40 // INTEL DIVISION</div>
+    <h1>INVESTIGATION</h1>
+    <div class="subtitle">STRATEGIC ANALYSIS · CLASSIFIED REPORTS · CROSS-REFERENCE INTEL</div>
+  </header>
+
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span id="status-txt">INITIALISING — FETCHING INTEL FILES FROM SERVER…</span>
+    <span style="margin-left:auto;color:#0d2a38" id="file-count">0 FILES LOADED</span>
+  </div>
+
+  <!-- Loading indicator (shown while fetching) -->
+  <div id="loading-state" class="loading-state" style="display:none">
+    <div class="loading-ring"></div>
+    <div class="loading-label">FETCHING INTEL FILES…</div>
+  </div>
+
+  <!-- Cards grid -->
+  <div class="cards-grid" id="cards-grid">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- Empty state (shown when no files) -->
+  <div class="empty-state" id="empty-state">
+    <div class="e-icon">🗂</div>
+    <p>NO INTEL FILES FOUND<br><br>ADD YOUR <strong style="color:var(--accent)">.TXT</strong> FILES TO THE PROJECT ROOT AND LIST THEM IN <strong style="color:var(--accent)">manifest.json</strong>.</p>
+  </div>
+
+</div>
+
+<!-- ═══ READER MODAL ═══ -->
+<div id="reader-overlay" onclick="handleOverlayClick(event)">
+  <div id="reader-modal">
+    <div class="reader-header">
+      <div class="reader-header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+      </div>
+      <div class="reader-title-block">
+        <div class="reader-eyebrow">▸ INTEL REPORT</div>
+        <div class="reader-title" id="reader-title">—</div>
+      </div>
+      <button class="reader-close" onclick="closeReader()">✕</button>
+    </div>
+    <div class="reader-body">
+      <div class="reader-content" id="reader-content"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  SIDE NAV
+// ══════════════════════════════════════════
+function toggleNav() {
+  const open = document.getElementById('sidenav').classList.toggle('open');
+  document.getElementById('sidenav-overlay').classList.toggle('open', open);
+  document.getElementById('nav-toggle').classList.toggle('open', open);
+}
+function closeNav() {
+  ['sidenav','sidenav-overlay','nav-toggle'].forEach(id =>
+    document.getElementById(id).classList.remove('open'));
+}
+
+// ══════════════════════════════════════════
+//  AUTO-FETCH FROM SERVER
+//  Reads manifest.json → fetches each .txt file listed
+//  To add a new report: just add it to manifest.json
+// ══════════════════════════════════════════
+let files = []; // { name, raw }
+
+async function fetchIntelFiles() {
+  const loading = document.getElementById('loading-state');
+  const empty   = document.getElementById('empty-state');
+  loading.style.display = '';
+  empty.style.display   = 'none';
+
+  let manifest;
+  try {
+    const res = await fetch('manifest.json?_=' + Date.now());
+    if (!res.ok) throw new Error('manifest.json not found (HTTP ' + res.status + ')');
+    manifest = await res.json();
+  } catch(e) {
+    loading.style.display = 'none';
+    empty.style.display   = '';
+    empty.querySelector('p').innerHTML =
+      '⚠ MANIFEST NOT FOUND<br><br>ADD A <strong style="color:var(--accent)">manifest.json</strong> TO YOUR PROJECT ROOT.<br>' +
+      'FORMAT: <code style="color:var(--accent2)">{"files":["report1.txt","report2.txt"]}</code>';
+    document.getElementById('status-txt').textContent = 'ERROR: ' + e.message.toUpperCase();
+    return;
+  }
+
+  const list = manifest.files || [];
+  if (list.length === 0) {
+    loading.style.display = 'none';
+    empty.style.display = '';
+    return;
+  }
+
+  // Fetch each .txt in parallel
+  const results = await Promise.allSettled(
+    list.filter(f => typeof f === 'string' && f.endsWith('.txt'))
+        .map(async name => {
+          const r = await fetch(name + '?_=' + Date.now());
+          if (!r.ok) throw new Error(name + ' not found');
+          const raw = await r.text();
+          return { name, raw };
+        })
+  );
+
+  files = results
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value);
+
+  const failed = results.filter(r => r.status === 'rejected').length;
+
+  loading.style.display = 'none';
+  renderCards();
+  updateStatus();
+  if (failed > 0) showToast(failed + ' FILE(S) COULD NOT BE FETCHED');
+}
+
+// Boot
+fetchIntelFiles();
+
+// ══════════════════════════════════════════
+//  RENDER CARDS
+// ══════════════════════════════════════════
+function renderCards() {
+  const grid   = document.getElementById('cards-grid');
+  const empty  = document.getElementById('empty-state');
+  grid.innerHTML = '';
+
+  if (files.length === 0) {
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  files.forEach((file, idx) => {
+    const card = document.createElement('div');
+    card.className = 'inv-card';
+
+    // Title = filename without .txt, uppercased
+    const title = file.name.replace(/\.txt$/i,'').replace(/[-_]/g,' ').toUpperCase();
+
+    // Preview = first non-empty, non-heading lines (~180 chars)
+    const preview = getPreview(file.raw);
+
+    // Word count
+    const words = file.raw.split(/\s+/).filter(Boolean).length;
+
+    card.innerHTML = `
+      <div class="card-tag">INTEL FILE · ${String(idx+1).padStart(3,'0')}</div>
+      <div class="card-title">${escH(title)}</div>
+      <div class="card-preview">${escH(preview)}</div>
+      <div class="card-meta">
+        <span>${words.toLocaleString()} WORDS</span>
+        <button class="card-open-btn" onclick="openReader(${idx})">▸ OPEN</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function getPreview(raw) {
+  const lines = raw.split('\n').map(l=>l.trim()).filter(l => l && !l.startsWith('#') && !l.startsWith('---') && l.length > 8);
+  return lines.slice(0,3).join(' ').slice(0,220) + (lines.join(' ').length > 220 ? '…' : '');
+}
+
+function updateStatus() {
+  document.getElementById('status-txt').textContent =
+    files.length > 0 ? `${files.length} INTEL FILE(S) LOADED — SELECT A CARD TO READ` : 'INITIALISING — FETCHING INTEL FILES FROM SERVER…';
+  document.getElementById('file-count').textContent = files.length + ' FILES LOADED';
+}
+
+// ══════════════════════════════════════════
+//  READER MODAL
+// ══════════════════════════════════════════
+function openReader(idx) {
+  const file = files[idx];
+  document.getElementById('reader-title').textContent =
+    file.name.replace(/\.txt$/i,'').replace(/[-_]/g,' ').toUpperCase();
+  document.getElementById('reader-content').innerHTML = renderMarkdown(file.raw);
+  document.getElementById('reader-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeReader() {
+  document.getElementById('reader-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('reader-overlay')) closeReader();
+}
+
+// ── Keyboard close ──
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReader(); });
+
+// ══════════════════════════════════════════
+//  LIGHTWEIGHT MARKDOWN → HTML RENDERER
+//  Handles: #/##/### headings, **bold**, *italic*,
+//  `code`, > blockquote, - lists, --- hr, plain paragraphs
+// ══════════════════════════════════════════
+function renderMarkdown(md) {
+  const lines = md.split('\n');
+  let html = '';
+  let inUl = false, inOl = false;
+
+  const closeList = () => {
+    if (inUl) { html += '</ul>'; inUl = false; }
+    if (inOl) { html += '</ol>'; inOl = false; }
+  };
+
+  const inlineFormat = str =>
+    str
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/`(.+?)`/g,'<code>$1</code>');
+
+  lines.forEach(line => {
+    const t = line.trim();
+
+    if (!t) { closeList(); html += '<br>'; return; }
+
+    // Headings
+    if (/^### /.test(t)) { closeList(); html += `<h3>${inlineFormat(t.slice(4))}</h3>`; return; }
+    if (/^## /. test(t)) { closeList(); html += `<h2>${inlineFormat(t.slice(3))}</h2>`; return; }
+    if (/^# /.test(t))  { closeList(); html += `<h1>${inlineFormat(t.slice(2))}</h1>`; return; }
+
+    // HR
+    if (/^---+$/.test(t)) { closeList(); html += '<hr>'; return; }
+
+    // Blockquote
+    if (/^> /.test(t)) { closeList(); html += `<blockquote>${inlineFormat(t.slice(2))}</blockquote>`; return; }
+
+    // Unordered list
+    if (/^[*\-] /.test(t)) {
+      if (inOl) { html += '</ol>'; inOl = false; }
+      if (!inUl) { html += '<ul>'; inUl = true; }
+      html += `<li>${inlineFormat(t.slice(2))}</li>`;
+      return;
+    }
+
+    // Ordered list
+    if (/^\d+\. /.test(t)) {
+      if (inUl) { html += '</ul>'; inUl = false; }
+      if (!inOl) { html += '<ol>'; inOl = true; }
+      html += `<li>${inlineFormat(t.replace(/^\d+\. /,''))}</li>`;
+      return;
+    }
+
+    closeList();
+    html += `<p>${inlineFormat(t)}</p>`;
+  });
+
+  closeList();
+  return html;
+}
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let _toastT = null;
+function showToast(msg) {
+  const t = document.getElementById('inv-toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
