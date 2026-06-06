@@ -326,58 +326,6 @@
     to   { opacity:1; color:var(--text); }
   }
 
-  /* ── Block action bar ── */
-  .block-actions {
-    display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center;
-  }
-  .btn-block {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem; letter-spacing: 0.05em;
-    padding: 3px 8px; border-radius: 3px; border: 1px solid #ffffff22;
-    cursor: pointer; background: #0a0a1280; color: var(--dim);
-    transition: all 0.15s; display: flex; align-items: center; gap: 4px;
-    white-space: nowrap;
-  }
-  .btn-block:hover { border-color: var(--accent); color: var(--accent); background: #00f0ff11; }
-  .btn-translate { border-color: #9966dd55; color: #9966dd; }
-  .btn-translate:hover { border-color: #cc99ff; color: #cc99ff; background: #9966dd11; }
-  .btn-edit     { border-color: #00f0ff44; }
-  .btn-done     { border-color: #00ff8844; color: #00ff88; background: #00ff8811; }
-  .btn-done:hover { background: #00ff8822; }
-
-  /* translated result block */
-  .translated-txt {
-    margin-top: 6px; padding: 6px 10px;
-    border-left: 2px solid #9966dd66;
-    color: #cc99ff; font-size: 0.82rem; line-height: 1.55;
-    animation: wordIn 0.3s ease-out;
-  }
-  .translated-lang {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.58rem; color: #9966dd99; margin-bottom: 3px;
-  }
-  .translating-spinner {
-    color: #9966dd66; font-style: italic; font-size: 0.75rem;
-    animation: pulse 1s infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
-
-  /* edit textarea */
-  .edit-area {
-    width: 100%; box-sizing: border-box;
-    background: #0d0d1a; border: 1px solid var(--accent);
-    color: var(--text); font-family: inherit; font-size: 0.85rem;
-    line-height: 1.55; padding: 6px 8px; border-radius: 4px;
-    resize: vertical; min-height: 48px; outline: none;
-    margin-top: 4px;
-  }
-  .translate-lang-sel {
-    font-family: 'Share Tech Mono', monospace; font-size: 0.6rem;
-    background: #0a0a12; border: 1px solid #9966dd55; color: #cc99ff;
-    padding: 3px 6px; border-radius: 3px; cursor: pointer;
-    max-width: 160px;
-  }
-
   .interim-line {
     color: var(--accent); opacity: 0.7;
     font-style: italic; min-height: 1.5em;
@@ -581,11 +529,148 @@
     .field-group[style*="max-width:150px"],
     .field-group[style*="max-width:160px"] { max-width: none !important; flex: 1 1 120px; }
   }
+
+  /* ════════════════════════════════════════
+     SIDE NAV
+  ════════════════════════════════════════ */
+  #sidenav-overlay {
+    position: fixed; inset: 0; z-index: 900;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #sidenav-overlay.open { opacity: 1; pointer-events: all; }
+
+  #sidenav {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: 220px; z-index: 901;
+    background: #020810;
+    border-right: 1px solid #00f0ff22;
+    display: flex; flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+    box-shadow: 4px 0 30px #00f0ff0a;
+  }
+  #sidenav.open { transform: translateX(0); }
+
+  .sidenav-header {
+    padding: 28px 20px 18px;
+    border-bottom: 1px solid #00f0ff18;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidenav-header .sn-logo {
+    width: 28px; height: 28px; flex-shrink: 0;
+  }
+  .sidenav-header span {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.68rem; letter-spacing: 0.12em;
+    color: var(--accent); font-weight: 700;
+  }
+
+  .sidenav-items {
+    flex: 1; padding: 12px 0; overflow-y: auto;
+  }
+  .sn-item {
+    display: flex; align-items: center; gap: 13px;
+    padding: 13px 22px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.08em;
+    color: var(--dim); text-decoration: none;
+    transition: all 0.18s; border-left: 2px solid transparent;
+    position: relative;
+  }
+  .sn-item:hover, .sn-item.active {
+    color: var(--accent); border-left-color: var(--accent);
+    background: #00f0ff08;
+  }
+  .sn-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+  .sidenav-footer {
+    padding: 14px 20px;
+    border-top: 1px solid #00f0ff18;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem; color: #1a3040; letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  /* Hamburger button */
+  #nav-toggle {
+    position: fixed; top: 16px; left: 16px; z-index: 902;
+    width: 38px; height: 38px;
+    background: #020810; border: 1px solid #00f0ff33;
+    border-radius: 6px; cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 5px;
+    transition: border-color 0.2s;
+  }
+  #nav-toggle:hover { border-color: var(--accent); }
+  #nav-toggle span {
+    display: block; width: 18px; height: 1.5px;
+    background: var(--accent); border-radius: 2px;
+    transition: all 0.25s;
+  }
+  #nav-toggle.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  #nav-toggle.open span:nth-child(2) { opacity: 0; }
+  #nav-toggle.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  /* Push container right when nav open on wide screens */
+  @media (min-width: 900px) {
+    #sidenav { width: 230px; }
+  }
+  @media (max-width: 480px) {
+    #sidenav { width: 78vw; }
+  }
 </style>
 </head>
 <body>
 <div class="scanlines"></div>
 <div class="toast" id="toast"></div>
+
+<!-- ═══ SIDE NAV ═══ -->
+<div id="sidenav-overlay" onclick="closeNav()"></div>
+
+<nav id="sidenav">
+  <div class="sidenav-header">
+    <svg class="sn-logo" viewBox="0 0 46 46" fill="none">
+      <polygon points="23,2 43,13 43,33 23,44 3,33 3,13" stroke="#00f0ff" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <circle cx="23" cy="23" r="7" fill="#00f0ff18" stroke="#00f0ff" stroke-width="1.5"/>
+      <circle cx="23" cy="23" r="3" fill="#00f0ff"/>
+    </svg>
+    <span>BLACK PANJI</span>
+  </div>
+
+  <div class="sidenav-items">
+    <!-- Voice TX — back to main page -->
+    <a class="sn-item" href="index.html" id="sn-voice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+        <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8"  y1="23" x2="16" y2="23"/>
+      </svg>
+      VOICE TX
+    </a>
+
+    <!-- Investigation -->
+    <a class="sn-item" href="investigation.html" id="sn-intel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="11" cy="11" r="7"/>
+        <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+        <line x1="11" y1="8" x2="11" y2="14"/>
+        <line x1="8"  y1="11" x2="14" y2="11"/>
+      </svg>
+      INVESTIGATION
+    </a>
+  </div>
+
+  <div class="sidenav-footer">AEGIS SYSTEM v2.0</div>
+</nav>
+
+<!-- Hamburger -->
+<button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<!-- ═══ END SIDE NAV ═══ -->
 
 <div class="container">
 
@@ -754,7 +839,7 @@
       <div class="speaker-tip" style="background:#0d0020;border-color:#7b2fff44;color:#bb88ff;">
         🔊 <strong style="color:#cc99ff;">Internal Audio Mode</strong> — captures audio directly from apps like TikTok, YouTube, or any other app playing on your device.<br><br>
         <span style="color:#9966dd;">
-          <strong>Android Chrome:</strong> tap START — mic activates automatically. Play your audio loud and hold the phone mic close to the speaker. Boost <em>Mic Boost</em> slider if needed.<br><br>
+          <strong>Android Chrome:</strong> tap START → choose <em>Share screen</em> → enable <em>Share audio</em> → confirm. TikTok audio will be transcribed directly.<br><br>
           <strong>iPhone/iPad Safari:</strong> Internal capture is blocked by iOS. Use <em>📢 Phone/Speaker</em> mode instead and hold phone near mic.
         </span>
       </div>
@@ -1014,23 +1099,14 @@ async function startAll() {
   if (!SpeechRecognition) return;
 
   const sourceMode = document.getElementById('source-select').value;
+  // voice | speaker | internal
 
-  // ── INTERNAL AUDIO MODE ──
+  // ── INTERNAL AUDIO MODE (Android Chrome screen share) ──
   if (sourceMode === 'internal') {
     return await startInternalMode();
   }
 
-  // ── ANDROID: skip getUserMedia entirely — SpeechRecognition must own the mic alone ──
-  // Calling getUserMedia() alongside SpeechRecognition on Android Chrome causes the
-  // recognition engine to receive no audio — the waveform works but zero text is returned.
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  if (isAndroid) {
-    startAndroidWaveform(); // CSS-animated waveform, no mic stream needed
-    startRec();
-    return;
-  }
-
-  // ── DESKTOP: VOICE or SPEAKER MODE (microphone + Web Audio waveform) ──
+  // ── VOICE or SPEAKER MODE (microphone) ──
   const isSpeakerMode = sourceMode === 'speaker';
 
   const audioConstraints = isSpeakerMode
@@ -1078,10 +1154,8 @@ async function startInternalMode() {
   const dot   = document.getElementById('internal-dot');
   const label = document.getElementById('internal-status-label');
 
-  // Detect iOS
-  const isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const isAndroid = /Android/i.test(navigator.userAgent);
-
+  // Detect iOS — getDisplayMedia exists but audio capture is blocked
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   if (isIOS) {
     dot.className = 'error';
     label.textContent = '⚠ iOS BLOCKS INTERNAL AUDIO — USE PHONE/SPEAKER MODE';
@@ -1090,21 +1164,7 @@ async function startInternalMode() {
     return;
   }
 
-  // Android: getDisplayMedia never reliably returns audio tracks.
-  // SpeechRecognition must own the mic alone (no getUserMedia conflict).
-  // Use CSS waveform + direct recognition — same pattern as voice mode on Android.
-  if (isAndroid) {
-    dot.className = 'active';
-    label.textContent = '◉ ANDROID — MIC ACTIVE, PLAY AUDIO NEAR PHONE';
-    label.style.color = '#cc99ff';
-    setStatus('◉ ANDROID: MIC ACTIVE — PLAY AUDIO NEAR PHONE MIC', 'active');
-    showToast('PLAY AUDIO LOUD & HOLD MIC CLOSE ▸');
-    startAndroidWaveform();
-    startRec();
-    return;
-  }
-
-  // Desktop: check getDisplayMedia is available
+  // Check API availability
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
     dot.className = 'error';
     label.textContent = '⚠ SCREEN CAPTURE NOT SUPPORTED IN THIS BROWSER';
@@ -1181,55 +1241,14 @@ async function startInternalMode() {
   startRec();
 }
 
-// ── Android: CSS-animated waveform (no getUserMedia — avoids mic conflict) ──
-let androidWaveActive = false;
-let androidWaveFrame  = null;
-
-function startAndroidWaveform() {
-  androidWaveActive = true;
-  function draw() {
-    if (!androidWaveActive) return;
-    androidWaveFrame = requestAnimationFrame(draw);
-    const W = canvas.width, H = canvas.height;
-    ctx2d.clearRect(0, 0, W, H);
-    const dpr   = window.devicePixelRatio || 1;
-    const barW  = (W - (BAR_COUNT - 1) * 2 * dpr) / BAR_COUNT;
-    const maxH  = H * 0.92;
-    const cY    = H / 2;
-    const t     = Date.now() / 400;
-    for (let i = 0; i < BAR_COUNT; i++) {
-      const wave  = Math.sin(t + i * 0.4) * 0.4 + Math.sin(t * 1.7 + i * 0.7) * 0.2 + 0.15;
-      const h     = Math.max(2 * dpr, wave * maxH);
-      const x     = i * (barW + 2 * dpr);
-      const frac  = i / (BAR_COUNT - 1);
-      const r     = Math.round(frac * 123);
-      const g     = Math.round(240 - frac * 193);
-      ctx2d.fillStyle = `rgba(${r},${g},255,0.75)`;
-      ctx2d.beginPath();
-      ctx2d.roundRect(x, cY - h / 2, barW, h, 2 * dpr);
-      ctx2d.fill();
-    }
-  }
-  draw();
-}
-
-function stopAndroidWaveform() {
-  androidWaveActive = false;
-  if (androidWaveFrame) { cancelAnimationFrame(androidWaveFrame); androidWaveFrame = null; }
-}
-
 function startRec() {
   const lang       = elLangSel.value;
   const continuous = elModeSel.value === 'continuous';
-  const isAndroid  = /Android/i.test(navigator.userAgent);
 
-  // Android Chrome: continuous=true silently kills onresult.
-  // The recognition engine fires onend immediately with no text.
-  // Fix: force continuous=false and use the restart loop instead.
   recognition = new SpeechRecognition();
   recognition.lang             = lang;
-  recognition.continuous       = isAndroid ? false : true;
-  recognition.interimResults   = true;
+  recognition.continuous       = true;   // ALWAYS true — gives interim results reliably
+  recognition.interimResults   = true;   // show text WHILE speaking
   recognition.maxAlternatives  = 1;
 
   recognition.onstart = () => {
@@ -1243,18 +1262,25 @@ function startRec() {
     setStatus('◉ LISTENING — BLACK PANJI IS ACTIVE', 'active');
   };
 
+  // ── THE CRITICAL FIX: show interim text in real-time ──
   recognition.onresult = (event) => {
     let interimText = '';
+
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript;
+
       if (event.results[i].isFinal) {
+        // Confirmed word(s) — lock them into the transcript
         const cleaned = transcript.trim();
         if (cleaned) appendFinal(cleaned);
-        interimText = '';
+        interimText = ''; // clear interim after final
       } else {
+        // Still speaking — show it live
         interimText += transcript;
       }
     }
+
+    // Update interim display immediately
     elInterim.textContent = interimText ? '▸ ' + interimText : '';
     elBox.scrollTop = elBox.scrollHeight;
   };
@@ -1262,13 +1288,6 @@ function startRec() {
   recognition.onerror = (e) => {
     if (e.error === 'no-speech') return;
     if (e.error === 'aborted')   return;
-    if (e.error === 'network') {
-      // Android briefly fires network errors — silently restart
-      if (shouldRestart && isListening) {
-        setTimeout(() => { if (isListening) { try { recognition.start(); } catch(_) {} } }, 150);
-      }
-      return;
-    }
     if (e.error === 'not-allowed') {
       setStatus('⚠ MICROPHONE PERMISSION DENIED', 'error');
       shouldRestart = false;
@@ -1280,19 +1299,12 @@ function startRec() {
   recognition.onend = () => {
     elInterim.textContent = '';
     if (shouldRestart && isListening) {
-      // Overlap restart: spin up next instance immediately so no words fall
-      // into the gap. On Android a tiny delay avoids engine conflict.
-      const delay = isAndroid ? 150 : 0;
-      if (delay === 0) {
-        // Desktop: start immediately inline — zero gap
-        try { recognition.start(); } catch(_) {
-          // If that throws (already started), just let onend fire again
+      // Seamless restart — no gap
+      setTimeout(() => {
+        if (isListening) {
+          try { recognition.start(); } catch(_) {}
         }
-      } else {
-        setTimeout(() => {
-          if (isListening) { try { recognition.start(); } catch(_) {} }
-        }, delay);
-      }
+      }, 80);
     } else {
       onStopped();
     }
@@ -1306,184 +1318,6 @@ function startRec() {
 }
 
 // ─────────────────────────────────────────────
-//  Language options map (mirrors the <select> in the UI)
-// ─────────────────────────────────────────────
-const LANG_MAP = [
-  // label, speech-recognition value, MyMemory langpair target code
-  ['Bahasa Melayu (Malaysia)',    'ms-MY', 'ms'],
-  ['Bahasa Indonesia',            'id-ID', 'id'],
-  ['English (US)',                'en-US', 'en'],
-  ['English (UK)',                'en-GB', 'en'],
-  ['English (Australia)',        'en-AU', 'en'],
-  ['English (India)',            'en-IN', 'en'],
-  ['ภาษาไทย (Thai)',              'th-TH', 'th'],
-  ['Tiếng Việt (Vietnamese)',    'vi-VN', 'vi'],
-  ['Filipino / Tagalog',         'tl-PH', 'tl'],
-  ['中文 普通话 (Mandarin CN)',     'zh-CN', 'zh'],
-  ['中文 繁體 (Traditional TW)',    'zh-TW', 'zh-TW'],
-  ['粵語 (Cantonese HK)',          'zh-HK', 'zh'],
-  ['日本語 (Japanese)',            'ja-JP', 'ja'],
-  ['한국어 (Korean)',               'ko-KR', 'ko'],
-  ['हिन्दी (Hindi)',               'hi-IN', 'hi'],
-  ['தமிழ் (Tamil)',               'ta-IN', 'ta'],
-  ['తెలుగు (Telugu)',             'te-IN', 'te'],
-  ['বাংলা (Bengali)',             'bn-BD', 'bn'],
-  ['اردو (Urdu)',                 'ur-PK', 'ur'],
-  ['العربية (Arabic)',            'ar-SA', 'ar'],
-  ['فارسی (Persian)',             'fa-IR', 'fa'],
-  ['Türkçe (Turkish)',            'tr-TR', 'tr'],
-  ['Français (French)',           'fr-FR', 'fr'],
-  ['Deutsch (German)',            'de-DE', 'de'],
-  ['Español (Spain)',             'es-ES', 'es'],
-  ['Español (Mexico)',            'es-MX', 'es'],
-  ['Português (Brazil)',          'pt-BR', 'pt'],
-  ['Português (Portugal)',        'pt-PT', 'pt'],
-  ['Italiano (Italian)',          'it-IT', 'it'],
-  ['Русский (Russian)',           'ru-RU', 'ru'],
-  ['Nederlands (Dutch)',          'nl-NL', 'nl'],
-  ['Polski (Polish)',             'pl-PL', 'pl'],
-  ['Svenska (Swedish)',           'sv-SE', 'sv'],
-  ['Dansk (Danish)',              'da-DK', 'da'],
-  ['Suomi (Finnish)',             'fi-FI', 'fi'],
-  ['Norsk (Norwegian)',           'nb-NO', 'no'],
-  ['Українська (Ukrainian)',      'uk-UA', 'uk'],
-  ['Ελληνικά (Greek)',            'el-GR', 'el'],
-  ['Čeština (Czech)',             'cs-CZ', 'cs'],
-  ['Română (Romanian)',           'ro-RO', 'ro'],
-  ['Magyar (Hungarian)',          'hu-HU', 'hu'],
-];
-
-function buildLangOptions() {
-  // Default to ms-MY (Bahasa Melayu) since that's the primary target
-  return LANG_MAP.map(([label, , code]) =>
-    `<option value="${code}" ${code === 'ms' ? 'selected' : ''}>${label}</option>`
-  ).join('');
-}
-
-// ── MyMemory free translation (no API key, supports ms-MY) ──
-async function myMemoryTranslate(text, targetCode) {
-  // Detect source language from the current recognition language
-  const srcLang = elLangSel.value.split('-')[0];   // e.g. "en" from "en-US"
-  const pair    = `${srcLang}|${targetCode}`;
-  const url     = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`;
-  const res  = await fetch(url);
-  const data = await res.json();
-  if (data.responseStatus === 200) {
-    return data.responseData.translatedText;
-  }
-  throw new Error(data.responseDetails || 'Translation failed');
-}
-
-// ── Translate button handler ──
-async function translateBlock(btn) {
-  const block      = btn.closest('.ts-block');
-  const txtEl      = block.querySelector('.txt');
-  const targetCode = block.querySelector('.translate-lang-sel').value;
-  const text       = txtEl.textContent.trim();
-  if (!text) return;
-
-  // Remove old translation if present
-  const old = block.querySelector('.translated-txt');
-  if (old) old.remove();
-
-  // Show spinner
-  const spinner = document.createElement('div');
-  spinner.className = 'translated-txt';
-  spinner.innerHTML = '<div class="translating-spinner">⟳ TRANSLATING…</div>';
-  block.appendChild(spinner);
-  btn.disabled = true;
-
-  try {
-    const result   = await myMemoryTranslate(text, targetCode);
-    const langName = LANG_MAP.find(([,, c]) => c === targetCode)?.[0] || targetCode;
-    spinner.innerHTML = `
-      <div class="translated-lang">⟳ → ${langName.toUpperCase()}</div>
-      <div>${escHtml(result)}</div>
-    `;
-  } catch (e) {
-    spinner.innerHTML = `<div class="translating-spinner">⚠ ${e.message}</div>`;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// ── Edit button handler ──
-function editBlock(btn) {
-  const block = btn.closest('.ts-block');
-  const txtEl = block.querySelector('.txt');
-  const current = txtEl.textContent;
-
-  // Hide the .txt div
-  txtEl.style.display = 'none';
-
-  // Create textarea
-  const area = document.createElement('textarea');
-  area.className = 'edit-area';
-  area.value = current;
-  area.rows = Math.max(2, Math.ceil(current.length / 60));
-  block.insertBefore(area, txtEl.nextSibling);
-  area.focus();
-
-  // Swap edit btn → done btn
-  btn.textContent = '✔ DONE';
-  btn.classList.replace('btn-edit', 'btn-done');
-  btn.onclick = () => doneEdit(btn);
-}
-
-// ── Done button handler ──
-function doneEdit(btn) {
-  const block = btn.closest('.ts-block');
-  const txtEl = block.querySelector('.txt');
-  const area  = block.querySelector('.edit-area');
-  if (!area) return;
-
-  // Commit edit
-  const newText = area.value.trim();
-  txtEl.textContent = newText;
-  txtEl.style.display = '';
-
-  // Update lineBuffer if this is the active block
-  if (block === activeBlock) lineBuffer = newText;
-
-  // Also update fullText
-  fullText = Array.from(elContent.querySelectorAll('.ts-block .txt'))
-    .map(el => el.textContent.trim()).filter(Boolean).join(' ');
-
-  // Remove textarea
-  area.remove();
-
-  // Swap done btn → edit btn, then auto-hide done btn after 2s
-  btn.textContent = '✔ SAVED';
-  btn.classList.replace('btn-done', 'btn-edit');
-  setTimeout(() => {
-    btn.textContent = '✎ EDIT';
-    btn.onclick = () => editBlock(btn);
-  }, 1500);
-}
-
-// ── Pre-warm: create a dummy SpeechRecognition instance on first user gesture
-//    so the browser negotiates mic permission + engine init before the user
-//    actually presses START. This eliminates the cold-start delay on first use.
-let _primed = false;
-function primeRecognition() {
-  if (_primed || !SpeechRecognition) return;
-  _primed = true;
-  try {
-    const p = new SpeechRecognition();
-    p.lang            = elLangSel.value;
-    p.continuous      = false;
-    p.interimResults  = false;
-    p.maxAlternatives = 1;
-    p.onend = () => {};
-    p.onerror = () => {};
-    p.start();
-    // Stop it immediately — we just wanted the engine to wake up
-    setTimeout(() => { try { p.stop(); } catch(_) {} }, 120);
-  } catch(_) {}
-}
-document.addEventListener('pointerdown', primeRecognition, { once: true });
-
-// ─────────────────────────────────────────────
 //  Stop everything
 // ─────────────────────────────────────────────
 function stopAll() {
@@ -1493,7 +1327,6 @@ function stopAll() {
     try { recognition.stop(); } catch(_) {}
     recognition = null;
   }
-  stopAndroidWaveform();
   stopAudio();
 }
 
@@ -1508,19 +1341,6 @@ function onStopped() {
 // ─────────────────────────────────────────────
 //  Append confirmed text block
 // ─────────────────────────────────────────────
-// ── Line buffer: accumulate finals; seal into a new block after 8s silence ──
-let lineBuffer      = '';       // words collected so far in current line
-let lineTimer       = null;     // setTimeout handle for the 8-second seal
-let activeBlock     = null;     // the DOM .ts-block being typed into
-const LINE_GAP_MS   = 8000;     // seal line after this many ms of silence
-
-function sealLine() {
-  clearTimeout(lineTimer);
-  lineTimer   = null;
-  activeBlock = null;
-  lineBuffer  = '';
-}
-
 function appendFinal(text) {
   if (!text) return;
 
@@ -1529,34 +1349,16 @@ function appendFinal(text) {
   elWords.textContent = wordCount;
   fullText += (fullText ? ' ' : '') + text;
 
-  // ── Add text to current open block, or create a new one ──
-  if (!activeBlock) {
-    // No open block — start a fresh line
-    const ts   = new Date().toTimeString().slice(0, 8);
-    const lang = elLangSel.options[elLangSel.selectedIndex].text;
-    activeBlock = document.createElement('div');
-    activeBlock.className = 'ts-block';
-    activeBlock.innerHTML = `
-      <div class="ts">${ts} · ${escHtml(lang)}</div>
-      <div class="txt"></div>
-      <div class="block-actions">
-        <select class="translate-lang-sel">${buildLangOptions()}</select>
-        <button class="btn-block btn-translate" onclick="translateBlock(this)">⟳ TRANSLATE</button>
-        <button class="btn-block btn-edit" onclick="editBlock(this)">✎ EDIT</button>
-      </div>
-    `;
-    elContent.appendChild(activeBlock);
-    lineBuffer = '';
-  }
+  const ts   = new Date().toTimeString().slice(0,8);
+  const lang = elLangSel.options[elLangSel.selectedIndex].text;
 
-  // Append words into the open block's .txt div
-  lineBuffer += (lineBuffer ? ' ' : '') + text;
-  activeBlock.querySelector('.txt').textContent = lineBuffer;
-
-  // Reset the 8-second silence timer — seal when user stops speaking
-  clearTimeout(lineTimer);
-  lineTimer = setTimeout(sealLine, LINE_GAP_MS);
-
+  const block = document.createElement('div');
+  block.className = 'ts-block';
+  block.innerHTML = `
+    <div class="ts">${ts} · ${escHtml(lang)}</div>
+    <div class="txt">${escHtml(text)}</div>
+  `;
+  elContent.appendChild(block);
   elBox.scrollTop = elBox.scrollHeight;
 }
 
@@ -1574,7 +1376,6 @@ function clearTranscript() {
   fullText  = '';
   wordCount = 0;
   elWords.textContent = '0';
-  sealLine(); // reset line buffer
   if (!isListening) setStatus('SYSTEM IDLE — READY TO LISTEN', '');
 }
 
@@ -1607,14 +1408,14 @@ elLangSel.addEventListener('change', () => {
   if (!isListening) return;
   shouldRestart = false;
   if (recognition) { try { recognition.stop(); } catch(_) {} recognition = null; }
-  setTimeout(startRec, 50);
+  setTimeout(startRec, 300);
 });
 
 elModeSel.addEventListener('change', () => {
   if (!isListening) return;
   shouldRestart = false;
   if (recognition) { try { recognition.stop(); } catch(_) {} recognition = null; }
-  setTimeout(startRec, 50);
+  setTimeout(startRec, 300);
 });
 
 // ── Source mode toggle ──
@@ -1642,7 +1443,7 @@ document.getElementById('source-select').addEventListener('change', function() {
   if (isListening) {
     shouldRestart = false;
     stopAll();
-    setTimeout(startAll, 80);
+    setTimeout(startAll, 400);
   }
 });
 
@@ -1656,6 +1457,30 @@ document.getElementById('gain-slider').addEventListener('input', function() {
 document.getElementById('gate-slider').addEventListener('input', function() {
   document.getElementById('gate-val').textContent = this.value + '%';
 });
+
+// ── Side Nav ──
+function toggleNav() {
+  const nav = document.getElementById('sidenav');
+  const overlay = document.getElementById('sidenav-overlay');
+  const btn = document.getElementById('nav-toggle');
+  const open = nav.classList.toggle('open');
+  overlay.classList.toggle('open', open);
+  btn.classList.toggle('open', open);
+}
+function closeNav() {
+  document.getElementById('sidenav').classList.remove('open');
+  document.getElementById('sidenav-overlay').classList.remove('open');
+  document.getElementById('nav-toggle').classList.remove('open');
+}
+// Mark active nav item
+(function(){
+  const page = location.pathname.split('/').pop() || 'index.html';
+  if (page === 'investigation.html') {
+    document.getElementById('sn-intel')?.classList.add('active');
+  } else {
+    document.getElementById('sn-voice')?.classList.add('active');
+  }
+})();
 </script>
 </body>
 </html>
