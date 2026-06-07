@@ -1045,59 +1045,74 @@ function setMapStyle(style) {
 }
 
 // ── SEARCH ──
-document.getElementById('search-input').addEventListener('input', function() {
+const searchInput   = document.getElementById('search-input');
+const searchResults = document.getElementById('search-results');
+
+searchInput.addEventListener('input', function() {
   clearTimeout(searchTimer);
   const q = this.value.trim();
-  if (q.length < 3) { document.getElementById('search-results').style.display='none'; return; }
+  if (q.length < 2) { searchResults.style.display = 'none'; return; }
 
-  // Check if it's coordinates
+  // Check if it's coordinates (lat, lng)
   const coordMatch = q.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
   if (coordMatch) {
     const lat = parseFloat(coordMatch[1]), lng = parseFloat(coordMatch[2]);
-    document.getElementById('search-results').style.display = 'block';
-    document.getElementById('search-results').innerHTML =
+    searchResults.style.display = 'block';
+    searchResults.innerHTML =
       `<div class="sr-item" onclick="flyTo(${lng},${lat},12)">
         📍 FLY TO COORDINATES: ${lat}, ${lng}</div>`;
     return;
   }
 
-  searchTimer = setTimeout(() => geocodeSearch(q), 400);
+  searchTimer = setTimeout(() => geocodeSearch(q), 350);
 });
 
 async function geocodeSearch(q) {
   try {
     const res = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?access_token=${mapboxgl.accessToken}&limit=5`
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?access_token=${mapboxgl.accessToken}&limit=6`
     );
     const data = await res.json();
-    const results = document.getElementById('search-results');
     if (!data.features || data.features.length === 0) {
-      results.style.display = 'none'; return;
+      searchResults.style.display = 'none'; return;
     }
-    results.style.display = 'block';
-    results.innerHTML = data.features.map(f =>
-      `<div class="sr-item" onclick="flyTo(${f.center[0]},${f.center[1]},12)">${f.place_name}</div>`
-    ).join('');
+    searchResults.style.display = 'block';
+    searchResults.innerHTML = data.features.map(f => {
+      const [lng, lat] = f.center;
+      return `<div class="sr-item" onclick="flyTo(${lng},${lat},12)">${f.place_name}</div>`;
+    }).join('');
   } catch(e) { console.error(e); }
 }
 
-document.getElementById('search-input').addEventListener('keydown', function(e) {
+searchInput.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    document.getElementById('search-results').style.display = 'none';
+    searchResults.style.display = 'none';
     this.value = '';
+  }
+  if (e.key === 'Enter') {
+    const q = this.value.trim();
+    // coordinate direct Enter
+    const coordMatch = q.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+    if (coordMatch) {
+      flyTo(parseFloat(coordMatch[2]), parseFloat(coordMatch[1]), 12);
+      return;
+    }
+    // pick first result if available
+    const first = searchResults.querySelector('.sr-item');
+    if (first) first.click();
   }
 });
 
 document.addEventListener('click', e => {
   if (!document.getElementById('search-wrap').contains(e.target)) {
-    document.getElementById('search-results').style.display = 'none';
+    searchResults.style.display = 'none';
   }
 });
 
 function flyTo(lng, lat, zoom) {
-  map.flyTo({ center:[lng, lat], zoom, speed:1.4 });
-  document.getElementById('search-results').style.display = 'none';
-  document.getElementById('search-input').value = '';
+  map.flyTo({ center:[lng, lat], zoom, speed:1.4, essential:true });
+  searchResults.style.display = 'none';
+  searchInput.value = '';
 }
 
 // ── EXPORT ──
