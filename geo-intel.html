@@ -976,6 +976,9 @@ map.on('load', () => {
   // ready
 });
 
+
+} // end startMap
+
 // ── PIN MODE cursor — MutationObserver locks crosshair on the canvas container
 // Mapbox sets cursor:grab as inline style on .mapboxgl-canvas-container
 // CSS !important cannot beat inline styles — must patch the element directly
@@ -990,8 +993,10 @@ function _setCrosshair() {
 
 function _startCursorLock() {
   _setCrosshair();
+  // Re-try until canvas container is available (map may still be initialising)
   const cc = document.querySelector('#map .mapboxgl-canvas-container');
-  if (!cc) return;
+  if (!cc) { setTimeout(_startCursorLock, 100); return; }
+  if (_pinCursorObserver) _pinCursorObserver.disconnect();
   _pinCursorObserver = new MutationObserver(() => {
     if (pinMode) _setCrosshair();
   });
@@ -1008,16 +1013,18 @@ function _stopCursorLock() {
 
 // ── PIN MODE — toggle on/off ──
 function enterPinMode() {
+  if (!map) { toast('⚠ MAP NOT READY'); return; }
   pinMode = !pinMode;
   const btn = document.getElementById('btn-pin');
   if (pinMode) {
     btn.classList.add('active');
-    _startCursorLock();
+    // small delay so map canvas exists before we query it
+    setTimeout(_startCursorLock, 50);
     toast('📍 PIN MODE ON — CLICK MAP TO DROP MARKER');
     if (drawMode) {
       drawMode = false;
       document.getElementById('btn-zone').classList.remove('active');
-      draw.changeMode('simple_select');
+      try { draw.changeMode('simple_select'); } catch(e) {}
     }
     if (!panelOpen) togglePanel();
     switchTab('markers');
@@ -1459,7 +1466,6 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-} // end startMap
 
 // ── GLOBAL flyTo — called from coordinate search onclick ──
 function flyTo(lng, lat, zoom) {
