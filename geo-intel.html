@@ -513,8 +513,13 @@
   }
   .mapboxgl-popup-tip { border-top-color:#00f0ff33 !important; border-bottom-color:#00f0ff33 !important; }
 
-  /* Draw control styling */
-  .mapbox-gl-draw_ctrl-draw-btn { filter:invert(0.7) sepia(1) saturate(4) hue-rotate(160deg); }
+  /* Force crosshair cursor when pin mode is active — overrides Mapbox grab */
+  #map.pin-mode,
+  #map.pin-mode .mapboxgl-canvas,
+  #map.pin-mode .mapboxgl-canvas-container,
+  #map.pin-mode .mapboxgl-canvas-container.mapboxgl-interactive {
+    cursor: crosshair !important;
+  }
 
   /* Coords bottom left */
   #coords-bar {
@@ -954,18 +959,25 @@ map.on('draw.create', onDrawCreate);
 map.on('draw.delete', onDrawDelete);
 
 // ── MAP EVENTS ──
-map.on('click', e => {
-  if (!pinMode) return;
-  // Stop event from bubbling to draw controls
-  e.originalEvent.stopPropagation();
-  dropPinAt(e.lngLat.lng, e.lngLat.lat);
-});
+let _downPoint = null;
+map.on('mousedown', e => { _downPoint = e.point; });
 
 map.on('mousemove', e => {
   const lng = e.lngLat.lng.toFixed(5);
   const lat = e.lngLat.lat.toFixed(5);
   document.getElementById('coords-bar').textContent = `CURSOR: ${lat} , ${lng}`;
   document.getElementById('coord-display').textContent = `LAT ${lat}  LNG ${lng}`;
+});
+
+map.on('click', e => {
+  if (!pinMode) return;
+  // Ignore if user dragged the map (moved > 5px from mousedown)
+  if (_downPoint) {
+    const dx = e.point.x - _downPoint.x;
+    const dy = e.point.y - _downPoint.y;
+    if (Math.sqrt(dx*dx + dy*dy) > 5) return;
+  }
+  dropPinAt(e.lngLat.lng, e.lngLat.lat);
 });
 
 map.on('load', () => {
@@ -975,10 +987,13 @@ map.on('load', () => {
 // ── PIN MODE — toggle on/off ──
 function enterPinMode() {
   pinMode = !pinMode;
-  const btn = document.getElementById('btn-pin');
+  const btn    = document.getElementById('btn-pin');
+  const mapDiv = document.getElementById('map');
   if (pinMode) {
     btn.classList.add('active');
+    mapDiv.classList.add('pin-mode');
     map.getCanvas().style.cursor = 'crosshair';
+    map.dragPan.enable();
     toast('📍 PIN MODE ON — CLICK MAP TO DROP MARKER');
     // cancel draw mode if active
     if (drawMode) {
@@ -991,6 +1006,7 @@ function enterPinMode() {
     switchTab('markers');
   } else {
     btn.classList.remove('active');
+    mapDiv.classList.remove('pin-mode');
     map.getCanvas().style.cursor = '';
     toast('PIN MODE OFF');
   }
@@ -1490,7 +1506,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'p' || e.key === 'P') enterPinMode();
   if (e.key === 'z' || e.key === 'Z') toggleDrawZone();
   if (e.key === 'Escape') {
-    pinMode=false; map.getCanvas().style.cursor='';
+    pinMode = false;
+    document.getElementById('map').classList.remove('pin-mode');
+    map.getCanvas().style.cursor = '';
     document.getElementById('btn-pin').classList.remove('active');
     closeDetail();
   }
