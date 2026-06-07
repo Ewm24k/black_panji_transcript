@@ -50,7 +50,10 @@
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.6;transform:scale(0.85);} }
   @keyframes scanline { 0%{transform:translateY(-100%);}100%{transform:translateY(100vh);} }
   @keyframes fadeIn { from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);} }
-  @keyframes blink { 0%,100%{opacity:1;}50%{opacity:0;} }
+  @keyframes pinDrop {
+    from { transform: translateY(-24px) scale(0.6); opacity: 0; }
+    to   { transform: translateY(0)     scale(1);   opacity: 1; }
+  }
 
   .scanlines {
     position: fixed; inset: 0;
@@ -835,6 +838,8 @@
       <div class="dm-title" id="dm-name">—</div>
       <button class="dm-close" onclick="closeDetail()">✕</button>
     </div>
+
+    <!-- Read-only info rows -->
     <div class="dm-row">
       <div class="dm-label">THREAT</div>
       <div class="dm-val"><span class="dm-threat-badge" id="dm-threat-badge">—</span></div>
@@ -855,10 +860,32 @@
       <div class="dm-label">INTEL</div>
       <div class="dm-val" id="dm-note">—</div>
     </div>
+
+    <!-- Edit section -->
+    <div style="border-top:1px solid #00f0ff11;margin-top:14px;padding-top:14px;">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.56rem;letter-spacing:0.18em;color:#1a3a50;margin-bottom:10px;">EDIT MARKER</div>
+      <div class="modal-field" style="margin-bottom:10px;">
+        <label class="modal-label">CALLSIGN</label>
+        <input class="modal-input" id="dm-edit-name" type="text" placeholder="e.g. TANGO-01">
+      </div>
+      <div class="modal-field" style="margin-bottom:10px;">
+        <label class="modal-label">THREAT LEVEL</label>
+        <select class="modal-select" id="dm-edit-threat">
+          <option value="high">HIGH — HOSTILE</option>
+          <option value="medium">MEDIUM — SUSPECT</option>
+          <option value="low">LOW — FRIENDLY</option>
+        </select>
+      </div>
+      <div class="modal-field" style="margin-bottom:0;">
+        <label class="modal-label">INTEL NOTES</label>
+        <textarea class="modal-textarea" id="dm-edit-note" placeholder="Last seen, activity, assets..." style="min-height:56px;"></textarea>
+      </div>
+    </div>
+
     <div class="dm-actions">
       <button class="dm-btn dm-btn-fly"   onclick="dmFly()">FLY TO</button>
+      <button class="dm-btn" style="background:#00ff8811;border:1px solid #00ff8844;color:#00ff88;flex:1;" onclick="dmSave()">SAVE</button>
       <button class="dm-btn dm-btn-del"   onclick="dmDelete()">REMOVE</button>
-      <button class="dm-btn dm-btn-close" onclick="closeDetail()">CLOSE</button>
     </div>
   </div>
 </div>
@@ -929,9 +956,9 @@ map.on('draw.delete', onDrawDelete);
 // ── MAP EVENTS ──
 map.on('click', e => {
   if (!pinMode) return;
-  pendingLng = e.lngLat.lng;
-  pendingLat = e.lngLat.lat;
-  openModal();
+  // Stop event from bubbling to draw controls
+  e.originalEvent.stopPropagation();
+  dropPinAt(e.lngLat.lng, e.lngLat.lat);
 });
 
 map.on('mousemove', e => {
@@ -945,23 +972,117 @@ map.on('load', () => {
   // ready
 });
 
-// ── PIN MODE ──
+// ── PIN MODE — toggle on/off ──
 function enterPinMode() {
   pinMode = !pinMode;
   const btn = document.getElementById('btn-pin');
   if (pinMode) {
     btn.classList.add('active');
     map.getCanvas().style.cursor = 'crosshair';
-    toast('PIN MODE ACTIVE — CLICK MAP TO DROP');
-    drawMode = false;
-    document.getElementById('btn-zone').classList.remove('active');
+    toast('📍 PIN MODE ON — CLICK MAP TO DROP MARKER');
+    // cancel draw mode if active
+    if (drawMode) {
+      drawMode = false;
+      document.getElementById('btn-zone').classList.remove('active');
+      draw.changeMode('simple_select');
+    }
+    // ensure panel is open on MARKERS tab
+    if (!panelOpen) togglePanel();
+    switchTab('markers');
   } else {
     btn.classList.remove('active');
     map.getCanvas().style.cursor = '';
+    toast('PIN MODE OFF');
   }
 }
 
-// ── DRAW ZONE ──
+// ── INSTANT PIN DROP — no modal, drops immediately ──
+async function dropPinAt(lng, lat) {
+  const num     = String(markers.length + 1).padStart(2, '0');
+  const name    = `TARGET-${num}`;
+  const threat  = 'medium';
+  const color   = '#ffd700';
+  const id      = Date.now();
+  const timestamp = new Date().toLocaleString('en-GB', {
+    day:'2-digit', month:'short', year:'numeric',
+    hour:'2-digit', minute:'2-digit'
+  });
+
+  // Build SVG pin element
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.75 14 22 14 22s14-12.25 14-22C28 6.27 21.73 0 14 0z"
+        fill="${color}22" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="4" fill="${color}" opacity="0.9"/>
+    </svg>`;
+  el.style.cssText = `cursor:pointer;filter:drop-shadow(0 0 8px ${color}99);
+    animation:pinDrop 0.3s cubic-bezier(.34,1.56,.64,1) both`;
+
+  const mbMarker = new mapboxgl.Marker({ element: el })
+    .setLngLat([lng, lat])
+    .addTo(map);
+
+  const markerObj = { id, name, threat, note: '', lat, lng, mbMarker, place: 'RESOLVING…', timestamp };
+  markers.push(markerObj);
+
+  // Clicking the pin opens the detail/edit modal
+  el.addEventListener('click', ev => { ev.stopPropagation(); openDetail(id); });
+
+  // Ensure panel open on markers tab
+  if (!panelOpen) togglePanel();
+  switchTab('markers');
+  updatePinCount();
+  renderPanel();
+  toast(`📍 MARKER DROPPED — CLICK PIN OR INFO TO EDIT`);
+
+  // Scroll the new card into view
+  setTimeout(() => {
+    const card = document.getElementById(`mc-${id}`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 80);
+
+  // Reverse geocode in background
+  try {
+    const res  = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
+      `?access_token=${mapboxgl.accessToken}&types=place,district,region,country&limit=1`
+    );
+    const data = await res.json();
+    markerObj.place = (data.features && data.features.length > 0)
+      ? data.features[0].place_name
+      : `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+  } catch(e) {
+    markerObj.place = 'LOCATION UNKNOWN';
+  }
+  renderPanel();
+}
+
+// ── MODAL (kept for manual coord entry via right-click future use) ──
+function openModal() {
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-threat').value = 'medium';
+  document.getElementById('m-note').value = '';
+  document.getElementById('m-coords').value =
+    `${pendingLat.toFixed(5)}, ${pendingLng.toFixed(5)}`;
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('m-name').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+async function confirmMarker() {
+  const name    = document.getElementById('m-name').value.trim() || `TARGET-${String(markers.length+1).padStart(2,'0')}`;
+  const threat  = document.getElementById('m-threat').value;
+  const note    = document.getElementById('m-note').value.trim();
+  closeModal();
+  // reuse dropPinAt then override name/threat/note on the last marker
+  await dropPinAt(pendingLng, pendingLat);
+  const m = markers[markers.length - 1];
+  if (m) { m.name = name; m.threat = threat; m.note = note; renderPanel(); }
+}
 function toggleDrawZone() {
   drawMode = !drawMode;
   const btn = document.getElementById('btn-zone');
@@ -997,82 +1118,6 @@ function onDrawDelete() {
   const ids = draw.getAll().features.map(f => f.id);
   zones = zones.filter(z => ids.includes(z.id));
   updateZoneCount();
-  renderPanel();
-}
-
-// ── MODAL ──
-function openModal() {
-  document.getElementById('m-name').value = '';
-  document.getElementById('m-threat').value = 'medium';
-  document.getElementById('m-note').value = '';
-  document.getElementById('m-coords').value =
-    `${pendingLat.toFixed(5)}, ${pendingLng.toFixed(5)}`;
-  document.getElementById('modal-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('m-name').focus(), 100);
-  pinMode = false;
-  document.getElementById('btn-pin').classList.remove('active');
-  map.getCanvas().style.cursor = '';
-}
-
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
-}
-
-async function confirmMarker() {
-  const name    = document.getElementById('m-name').value.trim() || `TARGET-${String(markers.length+1).padStart(2,'0')}`;
-  const threat  = document.getElementById('m-threat').value;
-  const note    = document.getElementById('m-note').value.trim();
-  const lng     = pendingLng;
-  const lat     = pendingLat;
-
-  const colors  = { high:'#ff2d78', medium:'#ffd700', low:'#00ff88' };
-  const color   = colors[threat];
-
-  // Mapbox marker
-  const el = document.createElement('div');
-  el.innerHTML = `
-    <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.75 14 22 14 22s14-12.25 14-22C28 6.27 21.73 0 14 0z" fill="${color}22" stroke="${color}" stroke-width="1.5"/>
-      <circle cx="14" cy="14" r="4" fill="${color}" opacity="0.9"/>
-    </svg>`;
-  el.style.cssText = 'cursor:pointer;filter:drop-shadow(0 0 6px '+color+'88)';
-
-  const mbMarker = new mapboxgl.Marker({ element:el })
-    .setLngLat([lng, lat])
-    .addTo(map);
-
-  const popup = new mapboxgl.Popup({ offset:30, closeButton:false })
-    .setHTML(`<div style="color:#00f0ff;font-weight:bold;margin-bottom:4px">${name}</div>
-              <div style="color:#3a6070;margin-bottom:3px">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
-              ${note ? `<div style="color:#6a9ab0;margin-top:5px">${note}</div>` : ''}`);
-
-  mbMarker.setPopup(popup);
-
-  const id        = Date.now();
-  const timestamp = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-
-  const markerObj = { id, name, threat, note, lat, lng, mbMarker, place: 'RESOLVING…', timestamp };
-  markers.push(markerObj);
-
-  el.addEventListener('click', e => { e.stopPropagation(); openDetail(id); });
-
-  closeModal();
-  updatePinCount();
-  renderPanel();
-  toast(`MARKER PLOTTED: ${name}`);
-
-  // ── Reverse geocode in background ──
-  try {
-    const res  = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&types=place,district,region,country&limit=1`);
-    const data = await res.json();
-    if (data.features && data.features.length > 0) {
-      markerObj.place = data.features[0].place_name;
-    } else {
-      markerObj.place = `${lat.toFixed(4)}°N ${lng.toFixed(4)}°E`;
-    }
-  } catch(e) {
-    markerObj.place = 'LOCATION UNKNOWN';
-  }
   renderPanel();
 }
 
@@ -1295,7 +1340,7 @@ function openDetail(id) {
   const threatBorder = { high:'#ff2d7844', medium:'#ffd70044', low:'#00ff8844' };
   const c = threatColors[m.threat];
 
-  document.getElementById('dm-name').textContent  = m.name;
+  document.getElementById('dm-name').textContent   = m.name;
   document.getElementById('dm-coords').textContent = `${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}`;
   document.getElementById('dm-place').textContent  = m.place || '—';
   document.getElementById('dm-time').textContent   = m.timestamp || '—';
@@ -1307,11 +1352,16 @@ function openDetail(id) {
   const noteRow = document.getElementById('dm-note-row');
   const noteVal = document.getElementById('dm-note');
   if (m.note) {
-    noteVal.textContent = m.note;
+    noteVal.textContent  = m.note;
     noteRow.style.display = '';
   } else {
     noteRow.style.display = 'none';
   }
+
+  // Pre-fill edit fields
+  document.getElementById('dm-edit-name').value   = m.name;
+  document.getElementById('dm-edit-threat').value = m.threat;
+  document.getElementById('dm-edit-note').value   = m.note || '';
 
   document.getElementById('detail-overlay').classList.add('open');
 }
@@ -1321,10 +1371,41 @@ function closeDetail() {
   detailMarkerId = null;
 }
 
+function dmSave() {
+  if (detailMarkerId === null) return;
+  const m = markers.find(x => x.id === detailMarkerId);
+  if (!m) return;
+
+  const newName   = document.getElementById('dm-edit-name').value.trim()  || m.name;
+  const newThreat = document.getElementById('dm-edit-threat').value;
+  const newNote   = document.getElementById('dm-edit-note').value.trim();
+
+  m.name   = newName;
+  m.threat = newThreat;
+  m.note   = newNote;
+
+  // Update the pin color on the map
+  const colors = { high:'#ff2d78', medium:'#ffd700', low:'#00ff88' };
+  const color  = colors[newThreat];
+  const pinEl  = m.mbMarker.getElement();
+  pinEl.innerHTML = `
+    <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.75 14 22 14 22s14-12.25 14-22C28 6.27 21.73 0 14 0z"
+        fill="${color}22" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="4" fill="${color}" opacity="0.9"/>
+    </svg>`;
+  pinEl.style.filter = `drop-shadow(0 0 8px ${color}99)`;
+
+  closeDetail();
+  renderPanel();
+  toast(`✓ MARKER UPDATED: ${newName}`);
+}
+
 function dmFly() {
   if (detailMarkerId === null) return;
+  const id = detailMarkerId;
   closeDetail();
-  flyToMarker(detailMarkerId);
+  flyToMarker(id);
 }
 
 function dmDelete() {
