@@ -453,27 +453,68 @@
   @media(max-width:768px){
     #right-panel { width:100vw; top:auto; bottom:0; height:50vh; border-left:none; border-top:1px solid #00f0ff22; transform:translateY(0); }
     #right-panel.collapsed { transform:translateY(50vh); }
-    #layer-pills { left:8px; right:auto; bottom:calc(50vh + 72px); flex-direction:row; flex-wrap:wrap; gap:4px; }
-    .layer-pill { font-size:0.52rem; padding:4px 8px; }
+    /* layer pills hidden on mobile — merged into toolbar dropdown */
+    #layer-pills { display:none; }
     .mapboxgl-ctrl-top-right { right:10px !important; top:55px !important; }
-    #bottom-toolbar { bottom:calc(50vh + 8px); left:8px; right:8px; transform:none; gap:4px; padding:6px 8px; overflow-x:auto; }
-    .tb-btn { padding:6px 9px; font-size:0.58rem; gap:5px; }
-    .tb-btn svg { width:12px; height:12px; }
-    #search-wrap { width:calc(100vw - 130px); left:60px; transform:none; top:10px; }
+    /* search: full width minus hamburger, positioned top */
+    #search-wrap { position:absolute; top:10px; left:60px; right:10px; width:auto; transform:none; z-index:11; }
     #search-input { font-size:0.65rem; padding:7px 10px 7px 30px; }
-    #topbar { padding:8px 10px 8px 58px; }
-    .tb-title { font-size:0.72rem; }
+    #topbar { display:none; }
     #stats-bar { top:50px; left:58px; gap:6px; }
     .stat-chip { font-size:0.55rem; padding:3px 7px; }
-    #coords-bar { bottom:calc(50vh + 58px); font-size:0.52rem; }
+    #coords-bar { display:none; }
     #sidenav { width:82vw; }
+    /* toolbar: directly below search box, same width */
+    #bottom-toolbar {
+      position:absolute; top:46px; left:60px; right:10px;
+      bottom:auto; transform:none;
+      gap:4px; padding:5px 8px;
+      border-radius:6px; overflow:visible;
+      flex-wrap:wrap;
+    }
+    .tb-btn { padding:6px 10px; font-size:0.58rem; gap:5px; flex:1; justify-content:center; min-width:60px; }
+    .tb-btn svg { width:12px; height:12px; }
     .tb-sep { display:none; }
+    /* mobile layer dropdown inside toolbar */
+    #mobile-layer-dropdown {
+      display:block;
+    }
   }
   @media(max-width:380px){
-    #bottom-toolbar { gap:3px; padding:5px 6px; }
+    #bottom-toolbar { left:58px; right:8px; gap:3px; padding:4px 6px; }
     .tb-btn { padding:5px 7px; font-size:0.54rem; }
-    #search-wrap { width:calc(100vw - 120px); }
+    #search-wrap { left:58px; right:8px; }
   }
+
+  /* ── MOBILE LAYER DROPDOWN (hidden on desktop) ── */
+  #mobile-layer-dropdown { display:none; position:relative; }
+  #mobile-layer-btn {
+    display:flex; align-items:center; gap:5px;
+    padding:6px 10px; border-radius:5px;
+    font-family:'Share Tech Mono',monospace; font-size:0.58rem;
+    letter-spacing:0.07em; cursor:pointer;
+    background:#00f0ff15; border:1px solid #00f0ff44; color:var(--accent);
+    transition:all 0.18s; white-space:nowrap; width:100%;
+    justify-content:center;
+  }
+  #mobile-layer-btn svg { width:12px; height:12px; flex-shrink:0; }
+  #mobile-layer-menu {
+    display:none; position:absolute; bottom:calc(100% + 4px); left:0; right:0;
+    background:#020810f0; border:1px solid #00f0ff22;
+    border-radius:6px; overflow:hidden;
+    backdrop-filter:blur(16px); z-index:50;
+  }
+  #mobile-layer-menu.open { display:block; }
+  .ml-item {
+    display:flex; align-items:center; gap:8px;
+    padding:9px 14px; cursor:pointer;
+    font-family:'Share Tech Mono',monospace; font-size:0.62rem;
+    color:var(--dim); transition:all 0.15s;
+    border-bottom:1px solid #00f0ff0a;
+  }
+  .ml-item:last-child { border-bottom:none; }
+  .ml-item:hover, .ml-item.active { background:#00f0ff0a; color:var(--accent); }
+  .ml-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -616,6 +657,27 @@
     </svg>
     CLEAR
   </button>
+  <!-- Mobile layer dropdown (shown only on mobile via CSS) -->
+  <div id="mobile-layer-dropdown">
+    <button id="mobile-layer-btn" onclick="toggleMobileLayerMenu()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/>
+        <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+      </svg>
+      LAYERS ▾
+    </button>
+    <div id="mobile-layer-menu">
+      <div class="ml-item active" data-style="dark" onclick="setMapStyle('dark');closeMobileLayerMenu()">
+        <div class="ml-dot" style="background:#00f0ff"></div>TACTICAL DARK
+      </div>
+      <div class="ml-item" data-style="satellite" onclick="setMapStyle('satellite');closeMobileLayerMenu()">
+        <div class="ml-dot" style="background:#7b2fff"></div>SATELLITE
+      </div>
+      <div class="ml-item" data-style="terrain" onclick="setMapStyle('terrain');closeMobileLayerMenu()">
+        <div class="ml-dot" style="background:#00ff88"></div>TERRAIN
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- COORDS BAR -->
@@ -956,6 +1018,9 @@ function setMapStyle(style) {
   document.querySelectorAll('.layer-pill').forEach(p => {
     p.classList.toggle('active', p.dataset.style === style);
   });
+  document.querySelectorAll('.ml-item').forEach(p => {
+    p.classList.toggle('active', p.dataset.style === style);
+  });
   map.setStyle(STYLES[style]);
   map.once('style.load', () => {
     toast('LAYER: ' + style.toUpperCase());
@@ -1094,6 +1159,20 @@ document.addEventListener('keydown', e => {
   if (e.key === 'p' || e.key === 'P') enterPinMode();
   if (e.key === 'z' || e.key === 'Z') toggleDrawZone();
   if (e.key === 'Escape') { pinMode=false; map.getCanvas().style.cursor=''; document.getElementById('btn-pin').classList.remove('active'); }
+});
+
+// ── MOBILE LAYER MENU ──
+function toggleMobileLayerMenu() {
+  const menu = document.getElementById('mobile-layer-menu');
+  menu.classList.toggle('open');
+}
+function closeMobileLayerMenu() {
+  document.getElementById('mobile-layer-menu').classList.remove('open');
+}
+// Close mobile layer menu on outside click
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('mobile-layer-dropdown');
+  if (wrap && !wrap.contains(e.target)) closeMobileLayerMenu();
 });
 
 // Boot
