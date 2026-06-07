@@ -513,14 +513,6 @@
   }
   .mapboxgl-popup-tip { border-top-color:#00f0ff33 !important; border-bottom-color:#00f0ff33 !important; }
 
-  /* Force crosshair cursor when pin mode is active — overrides Mapbox grab */
-  #map.pin-mode,
-  #map.pin-mode .mapboxgl-canvas,
-  #map.pin-mode .mapboxgl-canvas-container,
-  #map.pin-mode .mapboxgl-canvas-container.mapboxgl-interactive {
-    cursor: crosshair !important;
-  }
-
   /* Coords bottom left */
   #coords-bar {
     position:absolute; bottom:80px; left:16px; z-index:10;
@@ -984,30 +976,54 @@ map.on('load', () => {
   // ready
 });
 
+// ── PIN MODE cursor — MutationObserver locks crosshair on the canvas container
+// Mapbox sets cursor:grab as inline style on .mapboxgl-canvas-container
+// CSS !important cannot beat inline styles — must patch the element directly
+let _pinCursorObserver = null;
+
+function _setCrosshair() {
+  const cc = document.querySelector('#map .mapboxgl-canvas-container');
+  const cv = map.getCanvas();
+  if (cc) cc.style.setProperty('cursor', 'crosshair', 'important');
+  if (cv) cv.style.setProperty('cursor', 'crosshair', 'important');
+}
+
+function _startCursorLock() {
+  _setCrosshair();
+  const cc = document.querySelector('#map .mapboxgl-canvas-container');
+  if (!cc) return;
+  _pinCursorObserver = new MutationObserver(() => {
+    if (pinMode) _setCrosshair();
+  });
+  _pinCursorObserver.observe(cc, { attributes: true, attributeFilter: ['style'] });
+}
+
+function _stopCursorLock() {
+  if (_pinCursorObserver) { _pinCursorObserver.disconnect(); _pinCursorObserver = null; }
+  const cc = document.querySelector('#map .mapboxgl-canvas-container');
+  const cv = map.getCanvas();
+  if (cc) cc.style.removeProperty('cursor');
+  if (cv) cv.style.removeProperty('cursor');
+}
+
 // ── PIN MODE — toggle on/off ──
 function enterPinMode() {
   pinMode = !pinMode;
-  const btn    = document.getElementById('btn-pin');
-  const mapDiv = document.getElementById('map');
+  const btn = document.getElementById('btn-pin');
   if (pinMode) {
     btn.classList.add('active');
-    mapDiv.classList.add('pin-mode');
-    map.getCanvas().style.cursor = 'crosshair';
-    map.dragPan.enable();
+    _startCursorLock();
     toast('📍 PIN MODE ON — CLICK MAP TO DROP MARKER');
-    // cancel draw mode if active
     if (drawMode) {
       drawMode = false;
       document.getElementById('btn-zone').classList.remove('active');
       draw.changeMode('simple_select');
     }
-    // ensure panel is open on MARKERS tab
     if (!panelOpen) togglePanel();
     switchTab('markers');
   } else {
     btn.classList.remove('active');
-    mapDiv.classList.remove('pin-mode');
-    map.getCanvas().style.cursor = '';
+    _stopCursorLock();
     toast('PIN MODE OFF');
   }
 }
@@ -1107,6 +1123,7 @@ function toggleDrawZone() {
     draw.changeMode('draw_polygon');
     toast('DRAW MODE — CLICK TO MARK ZONE PERIMETER');
     pinMode = false;
+    _stopCursorLock();
     document.getElementById('btn-pin').classList.remove('active');
     map.getCanvas().style.cursor = 'crosshair';
   } else {
@@ -1507,8 +1524,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'z' || e.key === 'Z') toggleDrawZone();
   if (e.key === 'Escape') {
     pinMode = false;
-    document.getElementById('map').classList.remove('pin-mode');
-    map.getCanvas().style.cursor = '';
+    _stopCursorLock();
     document.getElementById('btn-pin').classList.remove('active');
     closeDetail();
   }
