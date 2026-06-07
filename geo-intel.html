@@ -260,6 +260,81 @@
   .mc-btn-del  { background:#ff2d7811; border-color:#ff2d7844; color:#ff2d78; }
   .mc-btn-del:hover { background:#ff2d7822; }
 
+  .mc-place {
+    font-family:'Share Tech Mono',monospace; font-size:0.58rem;
+    color:#4a8aa0; margin-bottom:3px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .mc-time {
+    font-family:'Share Tech Mono',monospace; font-size:0.54rem;
+    color:#1e4a5a; margin-bottom:4px;
+  }
+  .mc-btn-edit { background:#7b2fff11; border-color:#7b2fff44; color:#a066ff; }
+  .mc-btn-edit:hover { background:#7b2fff22; }
+  .mc-btn-info { background:#ffd70011; border-color:#ffd70044; color:#ffd700; }
+  .mc-btn-info:hover { background:#ffd70022; }
+
+  /* ── DETAIL MODAL ── */
+  #detail-overlay {
+    display:none; position:fixed; inset:0;
+    background:#000c; z-index:1010;
+    backdrop-filter:blur(4px);
+    align-items:center; justify-content:center;
+  }
+  #detail-overlay.open { display:flex; }
+  #detail-modal {
+    background:#030c14; border:1px solid #00f0ff33;
+    border-radius:8px; padding:24px; width:360px; max-width:95vw;
+    box-shadow:var(--glow); animation:fadeIn 0.2s ease;
+    position:relative;
+  }
+  .dm-header {
+    display:flex; align-items:flex-start; justify-content:space-between;
+    margin-bottom:18px; gap:10px;
+  }
+  .dm-title {
+    font-family:'Orbitron',monospace; font-size:0.82rem;
+    letter-spacing:0.13em; color:var(--accent); font-weight:700;
+    line-height:1.3; word-break:break-all;
+  }
+  .dm-close {
+    background:none; border:none; cursor:pointer;
+    color:var(--dim); font-size:1rem; flex-shrink:0;
+    transition:color 0.15s; padding:0 4px;
+  }
+  .dm-close:hover { color:var(--accent3); }
+  .dm-row {
+    display:flex; align-items:flex-start; gap:10px;
+    margin-bottom:10px; padding-bottom:10px;
+    border-bottom:1px solid #00f0ff0a;
+  }
+  .dm-row:last-of-type { border-bottom:none; margin-bottom:0; }
+  .dm-label {
+    font-family:'Share Tech Mono',monospace; font-size:0.58rem;
+    color:var(--dim); letter-spacing:0.1em; flex-shrink:0; width:72px;
+    padding-top:1px;
+  }
+  .dm-val {
+    font-family:'Share Tech Mono',monospace; font-size:0.68rem;
+    color:var(--text); line-height:1.5; word-break:break-word;
+  }
+  .dm-threat-badge {
+    font-family:'Share Tech Mono',monospace; font-size:0.62rem;
+    padding:3px 10px; border-radius:3px; display:inline-block;
+  }
+  .dm-actions { display:flex; gap:8px; margin-top:18px; }
+  .dm-btn {
+    flex:1; padding:8px 0; border-radius:4px;
+    font-family:'Share Tech Mono',monospace; font-size:0.62rem;
+    letter-spacing:0.07em; cursor:pointer; border:1px solid; transition:all 0.18s;
+  }
+  .dm-btn-fly    { background:#00f0ff11; border-color:#00f0ff44; color:var(--accent); }
+  .dm-btn-fly:hover { background:#00f0ff22; }
+  .dm-btn-del    { background:#ff2d7811; border-color:#ff2d7844; color:#ff2d78; }
+  .dm-btn-del:hover { background:#ff2d7822; }
+  .dm-btn-close  { background:#ffffff08; border-color:#ffffff18; color:var(--dim); }
+  .dm-btn-close:hover { color:var(--text); border-color:#ffffff33; }
+
   .empty-state {
     text-align:center; padding:40px 20px;
     font-family:'Share Tech Mono',monospace;
@@ -753,6 +828,41 @@
   </div>
 </div>
 
+<!-- MARKER DETAIL MODAL -->
+<div id="detail-overlay" onclick="if(event.target===this)closeDetail()">
+  <div id="detail-modal">
+    <div class="dm-header">
+      <div class="dm-title" id="dm-name">—</div>
+      <button class="dm-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="dm-row">
+      <div class="dm-label">THREAT</div>
+      <div class="dm-val"><span class="dm-threat-badge" id="dm-threat-badge">—</span></div>
+    </div>
+    <div class="dm-row">
+      <div class="dm-label">LOCATION</div>
+      <div class="dm-val" id="dm-place">—</div>
+    </div>
+    <div class="dm-row">
+      <div class="dm-label">COORDS</div>
+      <div class="dm-val" id="dm-coords">—</div>
+    </div>
+    <div class="dm-row">
+      <div class="dm-label">PLOTTED</div>
+      <div class="dm-val" id="dm-time">—</div>
+    </div>
+    <div class="dm-row" id="dm-note-row">
+      <div class="dm-label">INTEL</div>
+      <div class="dm-val" id="dm-note">—</div>
+    </div>
+    <div class="dm-actions">
+      <button class="dm-btn dm-btn-fly"   onclick="dmFly()">FLY TO</button>
+      <button class="dm-btn dm-btn-del"   onclick="dmDelete()">REMOVE</button>
+      <button class="dm-btn dm-btn-close" onclick="closeDetail()">CLOSE</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // Fetch token from Netlify function
 async function initMap() {
@@ -908,7 +1018,7 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
-function confirmMarker() {
+async function confirmMarker() {
   const name    = document.getElementById('m-name').value.trim() || `TARGET-${String(markers.length+1).padStart(2,'0')}`;
   const threat  = document.getElementById('m-threat').value;
   const note    = document.getElementById('m-note').value.trim();
@@ -937,15 +1047,33 @@ function confirmMarker() {
               ${note ? `<div style="color:#6a9ab0;margin-top:5px">${note}</div>` : ''}`);
 
   mbMarker.setPopup(popup);
-  el.addEventListener('click', e => { e.stopPropagation(); mbMarker.togglePopup(); });
 
-  const id = Date.now();
-  markers.push({ id, name, threat, note, lat, lng, mbMarker });
+  const id        = Date.now();
+  const timestamp = new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  const markerObj = { id, name, threat, note, lat, lng, mbMarker, place: 'RESOLVING…', timestamp };
+  markers.push(markerObj);
+
+  el.addEventListener('click', e => { e.stopPropagation(); openDetail(id); });
 
   closeModal();
   updatePinCount();
   renderPanel();
   toast(`MARKER PLOTTED: ${name}`);
+
+  // ── Reverse geocode in background ──
+  try {
+    const res  = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&types=place,district,region,country&limit=1`);
+    const data = await res.json();
+    if (data.features && data.features.length > 0) {
+      markerObj.place = data.features[0].place_name;
+    } else {
+      markerObj.place = `${lat.toFixed(4)}°N ${lng.toFixed(4)}°E`;
+    }
+  } catch(e) {
+    markerObj.place = 'LOCATION UNKNOWN';
+  }
+  renderPanel();
 }
 
 // ── PANEL ──
@@ -976,11 +1104,14 @@ function renderPanel() {
           <div class="mc-name">${m.name}</div>
           <div class="mc-threat threat-${m.threat}">${m.threat.toUpperCase()}</div>
         </div>
+        <div class="mc-place">📍 ${m.place || '—'}</div>
         <div class="mc-coords">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>
+        <div class="mc-time">${m.timestamp || ''}</div>
         ${m.note ? `<div class="mc-note">${m.note}</div>` : ''}
         <div class="mc-actions">
-          <button class="mc-btn mc-btn-fly" onclick="flyToMarker(${m.id})">FLY TO</button>
-          <button class="mc-btn mc-btn-del" onclick="deleteMarker(${m.id})">REMOVE</button>
+          <button class="mc-btn mc-btn-info"  onclick="openDetail(${m.id})">INFO</button>
+          <button class="mc-btn mc-btn-fly"   onclick="flyToMarker(${m.id})">FLY TO</button>
+          <button class="mc-btn mc-btn-del"   onclick="deleteMarker(${m.id})">REMOVE</button>
         </div>
       </div>`).join('');
   } else {
@@ -1070,17 +1201,18 @@ searchInput.addEventListener('input', function() {
 async function geocodeSearch(q) {
   try {
     const res = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?access_token=${mapboxgl.accessToken}&limit=6`
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?access_token=${mapboxgl.accessToken}&limit=6&types=country,region,district,place,locality,neighborhood,address,poi`
     );
     const data = await res.json();
     if (!data.features || data.features.length === 0) {
       searchResults.style.display = 'none'; return;
     }
+    // Store features so onclick can access bbox
+    searchResults._features = data.features;
     searchResults.style.display = 'block';
-    searchResults.innerHTML = data.features.map(f => {
-      const [lng, lat] = f.center;
-      return `<div class="sr-item" onclick="flyTo(${lng},${lat},12)">${f.place_name}</div>`;
-    }).join('');
+    searchResults.innerHTML = data.features.map((f, i) =>
+      `<div class="sr-item" onclick="flyToResult(${i})">${f.place_name}</div>`
+    ).join('');
   } catch(e) { console.error(e); }
 }
 
@@ -1098,8 +1230,12 @@ searchInput.addEventListener('keydown', function(e) {
       return;
     }
     // pick first result if available
-    const first = searchResults.querySelector('.sr-item');
-    if (first) first.click();
+    if (searchResults._features && searchResults._features.length > 0) {
+      flyToResult(0);
+    } else {
+      const first = searchResults.querySelector('.sr-item');
+      if (first) first.click();
+    }
   }
 });
 
@@ -1109,11 +1245,7 @@ document.addEventListener('click', e => {
   }
 });
 
-function flyTo(lng, lat, zoom) {
-  map.flyTo({ center:[lng, lat], zoom, speed:1.4, essential:true });
-  searchResults.style.display = 'none';
-  searchInput.value = '';
-}
+// flyTo defined inside startMap — global wrapper below at bottom of file
 
 // ── EXPORT ──
 function exportData() {
@@ -1150,6 +1282,58 @@ function clearAll() {
   toast('BOARD CLEARED');
 }
 
+// ── DETAIL MODAL ──
+let detailMarkerId = null;
+
+function openDetail(id) {
+  const m = markers.find(x => x.id === id);
+  if (!m) return;
+  detailMarkerId = id;
+
+  const threatColors = { high:'#ff2d78', medium:'#ffd700', low:'#00ff88' };
+  const threatBg     = { high:'#ff2d7822', medium:'#ffd70022', low:'#00ff8822' };
+  const threatBorder = { high:'#ff2d7844', medium:'#ffd70044', low:'#00ff8844' };
+  const c = threatColors[m.threat];
+
+  document.getElementById('dm-name').textContent  = m.name;
+  document.getElementById('dm-coords').textContent = `${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}`;
+  document.getElementById('dm-place').textContent  = m.place || '—';
+  document.getElementById('dm-time').textContent   = m.timestamp || '—';
+
+  const badge = document.getElementById('dm-threat-badge');
+  badge.textContent = m.threat.toUpperCase();
+  badge.style.cssText = `color:${c};background:${threatBg[m.threat]};border:1px solid ${threatBorder[m.threat]};`;
+
+  const noteRow = document.getElementById('dm-note-row');
+  const noteVal = document.getElementById('dm-note');
+  if (m.note) {
+    noteVal.textContent = m.note;
+    noteRow.style.display = '';
+  } else {
+    noteRow.style.display = 'none';
+  }
+
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('open');
+  detailMarkerId = null;
+}
+
+function dmFly() {
+  if (detailMarkerId === null) return;
+  closeDetail();
+  flyToMarker(detailMarkerId);
+}
+
+function dmDelete() {
+  if (detailMarkerId === null) return;
+  const id = detailMarkerId;
+  closeDetail();
+  deleteMarker(id);
+}
+
 // ── HELPERS ──
 function updatePinCount()  { document.getElementById('pin-count').textContent  = markers.length; }
 function updateZoneCount() { document.getElementById('zone-count').textContent = zones.length; }
@@ -1162,6 +1346,40 @@ function toast(msg) {
 }
 
 } // end startMap
+
+// ── GLOBAL flyTo — called from coordinate search onclick ──
+function flyTo(lng, lat, zoom) {
+  if (map) map.flyTo({ center:[lng, lat], zoom, speed:1.4, essential:true });
+  const searchResults = document.getElementById('search-results');
+  const searchInput   = document.getElementById('search-input');
+  if (searchResults) searchResults.style.display = 'none';
+  if (searchInput)   searchInput.value = '';
+}
+
+// ── GLOBAL flyToResult — called from geocode dropdown items ──
+// Uses fitBounds when the feature has a bbox (countries, regions, cities)
+// Falls back to flyTo for point-level results (streets, addresses)
+function flyToResult(idx) {
+  const el       = document.getElementById('search-results');
+  const inputEl  = document.getElementById('search-input');
+  const features = el ? el._features : null;
+  if (!features || !features[idx]) return;
+
+  const f = features[idx];
+
+  if (el)      el.style.display = 'none';
+  if (inputEl) inputEl.value = '';
+
+  if (!map) return;
+
+  if (f.bbox) {
+    // bbox = [minLng, minLat, maxLng, maxLat]
+    map.fitBounds(f.bbox, { padding: 40, speed: 1.2, essential: true });
+  } else {
+    const [lng, lat] = f.center;
+    map.flyTo({ center: [lng, lat], zoom: 12, speed: 1.4, essential: true });
+  }
+}
 
 // ── NAV + PANEL (global scope) ──
 function toggleNav() {
@@ -1190,7 +1408,11 @@ document.addEventListener('keydown', e => {
   if (!map) return;
   if (e.key === 'p' || e.key === 'P') enterPinMode();
   if (e.key === 'z' || e.key === 'Z') toggleDrawZone();
-  if (e.key === 'Escape') { pinMode=false; map.getCanvas().style.cursor=''; document.getElementById('btn-pin').classList.remove('active'); }
+  if (e.key === 'Escape') {
+    pinMode=false; map.getCanvas().style.cursor='';
+    document.getElementById('btn-pin').classList.remove('active');
+    closeDetail();
+  }
 });
 
 // ── MOBILE LAYER MENU ──
