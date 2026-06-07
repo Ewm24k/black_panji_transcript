@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GEO INTEL — Black Panji AEGIS</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.js"></script>
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.4.3/mapbox-gl-draw.css">
+<style>
+  :root {
+    --bg:      #020408;
+    --panel:   #040d15;
+    --border:  #0ff3;
+    --accent:  #00f0ff;
+    --accent2: #7b2fff;
+    --accent3: #ff2d78;
+    --text:    #c8eeff;
+    --dim:     #3a6070;
+    --glow:    0 0 20px #00f0ff55, 0 0 60px #00f0ff22;
+    --glow2:   0 0 20px #7b2fff55, 0 0 60px #7b2fff22;
+    --red:     #ff2d78;
+    --green:   #00ff88;
+    --yellow:  #ffd700;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    height: 100vh; overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,240,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,240,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridMove 20s linear infinite;
+    pointer-events: none; z-index: 0;
+  }
+
+  @keyframes gridMove { from { transform:translateY(0); } to { transform:translateY(40px); } }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.6;transform:scale(0.85);} }
+  @keyframes scanline { 0%{transform:translateY(-100%);}100%{transform:translateY(100vh);} }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);} }
+  @keyframes blink { 0%,100%{opacity:1;}50%{opacity:0;} }
+
+  .scanlines {
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);
+    pointer-events: none; z-index: 200;
+  }
+
+  /* ── SIDENAV ── */
+  #sidenav-overlay {
+    display:none; position:fixed; inset:0;
+    background:#000a; z-index:900; backdrop-filter:blur(2px);
+  }
+  #sidenav-overlay.open { display:block; }
+
+  #sidenav {
+    position: fixed; top:0; left:0; height:100vh;
+    width: 210px; background: #030c14ee;
+    border-right: 1px solid #00f0ff22;
+    backdrop-filter: blur(18px);
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    z-index: 901; display:flex; flex-direction:column;
+  }
+  #sidenav.open { transform: translateX(0); }
+
+  .sidenav-header {
+    display:flex; align-items:center; gap:12px;
+    padding:20px 18px 16px;
+    border-bottom: 1px solid #00f0ff15;
+  }
+  .sidenav-header .sn-logo { width:28px; height:28px; flex-shrink:0; }
+  .sidenav-header span {
+    font-family:'Orbitron',monospace;
+    font-size:0.68rem; letter-spacing:0.12em;
+    color:var(--accent); font-weight:700;
+  }
+  .sidenav-items { flex:1; padding:12px 0; overflow-y:auto; }
+  .sn-item {
+    display:flex; align-items:center; gap:13px;
+    padding:13px 22px; cursor:pointer;
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.72rem; letter-spacing:0.08em;
+    color:var(--dim); text-decoration:none;
+    transition:all 0.18s; border-left:2px solid transparent;
+  }
+  .sn-item:hover, .sn-item.active {
+    color:var(--accent); border-left-color:var(--accent);
+    background:#00f0ff08;
+  }
+  .sn-item svg { width:18px; height:18px; flex-shrink:0; }
+  .sidenav-footer {
+    padding:14px 20px;
+    border-top:1px solid #00f0ff18;
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.55rem; color:#1a3040;
+    letter-spacing:0.06em; text-align:center;
+  }
+
+  #nav-toggle {
+    position:fixed; top:16px; left:16px; z-index:902;
+    width:38px; height:38px;
+    background:#020810; border:1px solid #00f0ff33;
+    border-radius:6px; cursor:pointer;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:5px;
+    transition:border-color 0.2s;
+  }
+  #nav-toggle:hover { border-color:var(--accent); }
+  #nav-toggle span {
+    display:block; width:18px; height:1.5px;
+    background:var(--accent); border-radius:2px; transition:all 0.25s;
+  }
+  #nav-toggle.open span:nth-child(1) { transform:translateY(6.5px) rotate(45deg); }
+  #nav-toggle.open span:nth-child(2) { opacity:0; }
+  #nav-toggle.open span:nth-child(3) { transform:translateY(-6.5px) rotate(-45deg); }
+
+  /* ── LAYOUT ── */
+  #app {
+    position:relative; width:100vw; height:100vh;
+    display:flex; flex-direction:column; z-index:1;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    position:absolute; top:0; left:0; right:0; z-index:10;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px 10px 66px;
+    background:linear-gradient(180deg,#020408ee 0%,transparent 100%);
+    pointer-events:none;
+  }
+  .tb-title {
+    font-family:'Orbitron',monospace; font-size:0.85rem;
+    font-weight:700; letter-spacing:0.18em;
+    background:linear-gradient(135deg,#00f0ff,#7b2fff);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .tb-status {
+    display:flex; align-items:center; gap:18px;
+    font-family:'Share Tech Mono',monospace; font-size:0.65rem;
+    color:var(--dim); pointer-events:all;
+  }
+  .tb-dot {
+    width:7px; height:7px; border-radius:50%;
+    background:var(--green); box-shadow:0 0 8px var(--green);
+    animation:pulse 1.4s ease-in-out infinite; flex-shrink:0;
+  }
+  #coord-display { color:var(--accent); font-size:0.62rem; }
+
+  /* ── MAP ── */
+  #map { width:100%; height:100%; }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    position:absolute; top:0; right:0; bottom:0; z-index:10;
+    width:280px;
+    background:#020810f0;
+    border-left:1px solid #00f0ff1a;
+    backdrop-filter:blur(20px);
+    display:flex; flex-direction:column;
+    transition:transform 0.28s cubic-bezier(.4,0,.2,1);
+  }
+  #right-panel.collapsed { transform:translateX(280px); }
+
+  .rp-header {
+    padding:14px 16px;
+    border-bottom:1px solid #00f0ff15;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .rp-title {
+    font-family:'Orbitron',monospace; font-size:0.68rem;
+    letter-spacing:0.12em; color:var(--accent); font-weight:700;
+  }
+  .rp-close {
+    background:none; border:none; cursor:pointer;
+    color:var(--dim); font-size:1rem; padding:2px 6px;
+    transition:color 0.2s;
+  }
+  .rp-close:hover { color:var(--accent3); }
+
+  /* Tabs */
+  .rp-tabs {
+    display:flex; border-bottom:1px solid #00f0ff15;
+  }
+  .rp-tab {
+    flex:1; padding:9px 0;
+    font-family:'Share Tech Mono',monospace; font-size:0.62rem;
+    letter-spacing:0.08em; color:var(--dim);
+    background:none; border:none; cursor:pointer;
+    border-bottom:2px solid transparent; transition:all 0.18s;
+  }
+  .rp-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  .rp-body { flex:1; overflow-y:auto; padding:12px; }
+  .rp-body::-webkit-scrollbar { width:3px; }
+  .rp-body::-webkit-scrollbar-track { background:transparent; }
+  .rp-body::-webkit-scrollbar-thumb { background:#00f0ff33; border-radius:2px; }
+
+  /* Marker list */
+  .marker-card {
+    background:#040d15; border:1px solid #00f0ff1a;
+    border-radius:4px; padding:10px 12px; margin-bottom:8px;
+    cursor:pointer; transition:all 0.18s; animation:fadeIn 0.2s ease;
+  }
+  .marker-card:hover { border-color:#00f0ff44; background:#051520; }
+  .mc-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+  .mc-name {
+    font-family:'Share Tech Mono',monospace; font-size:0.7rem;
+    color:var(--text); letter-spacing:0.05em; word-break:break-all;
+  }
+  .mc-threat {
+    font-family:'Share Tech Mono',monospace; font-size:0.58rem;
+    padding:2px 7px; border-radius:3px; flex-shrink:0; margin-left:6px;
+  }
+  .threat-high   { background:#ff2d7822; color:#ff2d78; border:1px solid #ff2d7844; }
+  .threat-medium { background:#ffd70022; color:#ffd700; border:1px solid #ffd70044; }
+  .threat-low    { background:#00ff8822; color:#00ff88; border:1px solid #00ff8844; }
+  .mc-coords {
+    font-family:'Share Tech Mono',monospace; font-size:0.58rem;
+    color:var(--dim); margin-bottom:4px;
+  }
+  .mc-note {
+    font-size:0.72rem; color:#6a9ab0; line-height:1.4;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .mc-actions { display:flex; gap:6px; margin-top:8px; }
+  .mc-btn {
+    flex:1; padding:5px 0;
+    font-family:'Share Tech Mono',monospace; font-size:0.58rem;
+    letter-spacing:0.06em; border-radius:3px; cursor:pointer;
+    transition:all 0.18s; border:1px solid;
+  }
+  .mc-btn-fly  { background:#00f0ff11; border-color:#00f0ff44; color:var(--accent); }
+  .mc-btn-fly:hover { background:#00f0ff22; }
+  .mc-btn-del  { background:#ff2d7811; border-color:#ff2d7844; color:#ff2d78; }
+  .mc-btn-del:hover { background:#ff2d7822; }
+
+  .empty-state {
+    text-align:center; padding:40px 20px;
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.65rem; color:var(--dim); line-height:2;
+  }
+  .empty-state svg { width:36px; height:36px; margin-bottom:12px; opacity:0.3; }
+
+  /* Zone list */
+  .zone-card {
+    background:#040d15; border:1px solid #7b2fff22;
+    border-radius:4px; padding:10px 12px; margin-bottom:8px;
+    animation:fadeIn 0.2s ease;
+  }
+  .zc-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  .zc-name { font-family:'Share Tech Mono',monospace; font-size:0.7rem; color:var(--text); }
+  .zc-del {
+    background:none; border:none; cursor:pointer;
+    color:var(--dim); font-size:0.85rem; transition:color 0.15s;
+  }
+  .zc-del:hover { color:#ff2d78; }
+  .zc-type { font-family:'Share Tech Mono',monospace; font-size:0.58rem; color:#7b2fff; }
+
+  /* ── BOTTOM TOOLBAR ── */
+  #bottom-toolbar {
+    position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    z-index:10; display:flex; align-items:center; gap:6px;
+    background:#020810ee; border:1px solid #00f0ff22;
+    border-radius:8px; padding:8px 12px;
+    backdrop-filter:blur(16px);
+    box-shadow:0 0 30px #00f0ff11;
+  }
+  .tb-btn {
+    display:flex; align-items:center; gap:7px;
+    padding:7px 13px; border-radius:5px;
+    font-family:'Share Tech Mono',monospace; font-size:0.62rem;
+    letter-spacing:0.07em; cursor:pointer;
+    transition:all 0.18s; border:1px solid; white-space:nowrap;
+  }
+  .tb-btn svg { width:14px; height:14px; flex-shrink:0; }
+  .tb-btn-primary { background:#00f0ff15; border-color:#00f0ff44; color:var(--accent); }
+  .tb-btn-primary:hover, .tb-btn-primary.active { background:#00f0ff28; border-color:var(--accent); box-shadow:var(--glow); }
+  .tb-btn-purple { background:#7b2fff15; border-color:#7b2fff44; color:#a066ff; }
+  .tb-btn-purple:hover, .tb-btn-purple.active { background:#7b2fff28; border-color:#7b2fff; }
+  .tb-btn-danger  { background:#ff2d7815; border-color:#ff2d7844; color:#ff2d78; }
+  .tb-btn-danger:hover  { background:#ff2d7828; border-color:#ff2d78; }
+  .tb-btn-neutral { background:#ffffff08; border-color:#ffffff18; color:#7a9aaa; }
+  .tb-btn-neutral:hover { background:#ffffff12; color:var(--text); }
+  .tb-sep { width:1px; height:28px; background:#00f0ff15; margin:0 2px; }
+
+  /* Layer toggle pills */
+  #layer-pills {
+    position:absolute; top:60px; right:296px; z-index:10;
+    display:flex; flex-direction:column; gap:5px;
+    transition:right 0.28s;
+  }
+  #layer-pills.panel-closed { right:16px; }
+  .layer-pill {
+    display:flex; align-items:center; gap:8px;
+    padding:6px 12px; border-radius:20px;
+    font-family:'Share Tech Mono',monospace; font-size:0.6rem;
+    letter-spacing:0.07em; cursor:pointer;
+    background:#020810dd; border:1px solid #00f0ff1a;
+    color:var(--dim); transition:all 0.18s;
+    backdrop-filter:blur(10px);
+  }
+  .layer-pill:hover { border-color:#00f0ff33; color:var(--text); }
+  .layer-pill.active { border-color:#00f0ff55; color:var(--accent); }
+  .layer-pill-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+  /* ── MODAL ── */
+  #modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:#000c; z-index:1000;
+    backdrop-filter:blur(4px);
+    align-items:center; justify-content:center;
+  }
+  #modal-overlay.open { display:flex; }
+  #modal {
+    background:#030c14; border:1px solid #00f0ff33;
+    border-radius:8px; padding:24px; width:340px;
+    box-shadow:var(--glow); animation:fadeIn 0.2s ease;
+    position:relative;
+  }
+  .modal-title {
+    font-family:'Orbitron',monospace; font-size:0.8rem;
+    letter-spacing:0.15em; color:var(--accent);
+    margin-bottom:18px; font-weight:700;
+  }
+  .modal-field { margin-bottom:14px; }
+  .modal-label {
+    display:block; font-family:'Share Tech Mono',monospace;
+    font-size:0.62rem; letter-spacing:0.08em;
+    color:var(--dim); margin-bottom:5px;
+  }
+  .modal-input, .modal-select, .modal-textarea {
+    width:100%; background:#020810; border:1px solid #00f0ff22;
+    border-radius:4px; padding:8px 10px;
+    font-family:'Share Tech Mono',monospace; font-size:0.72rem;
+    color:var(--text); outline:none; transition:border-color 0.18s;
+  }
+  .modal-input:focus, .modal-select:focus, .modal-textarea:focus { border-color:#00f0ff66; }
+  .modal-select { appearance:none; cursor:pointer; }
+  .modal-select option { background:#030c14; }
+  .modal-textarea { resize:vertical; min-height:70px; line-height:1.5; }
+  .modal-actions { display:flex; gap:8px; margin-top:18px; }
+  .modal-btn {
+    flex:1; padding:9px 0; border-radius:4px;
+    font-family:'Share Tech Mono',monospace; font-size:0.65rem;
+    letter-spacing:0.08em; cursor:pointer; border:1px solid; transition:all 0.18s;
+  }
+  .modal-btn-confirm { background:#00f0ff18; border-color:#00f0ff55; color:var(--accent); }
+  .modal-btn-confirm:hover { background:#00f0ff28; box-shadow:var(--glow); }
+  .modal-btn-cancel  { background:#ffffff08; border-color:#ffffff18; color:var(--dim); }
+  .modal-btn-cancel:hover { color:var(--text); border-color:#ffffff33; }
+
+  /* ── TOAST ── */
+  #toast {
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:#030c14; border:1px solid #00f0ff44;
+    border-radius:6px; padding:9px 18px;
+    font-family:'Share Tech Mono',monospace; font-size:0.68rem;
+    color:var(--accent); z-index:2000;
+    pointer-events:none; opacity:0; transition:opacity 0.25s;
+    white-space:nowrap; box-shadow:var(--glow);
+  }
+  #toast.show { opacity:1; }
+
+  /* ── SEARCH BOX ── */
+  #search-wrap {
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    z-index:10; width:300px;
+  }
+  #search-input {
+    width:100%; background:#020810ee; border:1px solid #00f0ff33;
+    border-radius:6px; padding:9px 14px 9px 36px;
+    font-family:'Share Tech Mono',monospace; font-size:0.72rem;
+    color:var(--text); outline:none; transition:border-color 0.2s;
+    backdrop-filter:blur(16px);
+  }
+  #search-input:focus { border-color:#00f0ff88; box-shadow:var(--glow); }
+  #search-input::placeholder { color:var(--dim); }
+  .search-icon {
+    position:absolute; left:10px; top:50%; transform:translateY(-50%);
+    width:16px; height:16px; color:var(--dim); pointer-events:none;
+  }
+  #search-results {
+    position:absolute; top:calc(100% + 4px); left:0; right:0;
+    background:#020810f0; border:1px solid #00f0ff22;
+    border-radius:6px; overflow:hidden;
+    backdrop-filter:blur(16px); display:none;
+  }
+  .sr-item {
+    padding:9px 14px; cursor:pointer;
+    font-family:'Share Tech Mono',monospace; font-size:0.67rem;
+    color:var(--dim); transition:all 0.15s;
+    border-bottom:1px solid #00f0ff0a;
+  }
+  .sr-item:last-child { border-bottom:none; }
+  .sr-item:hover { background:#00f0ff0a; color:var(--accent); }
+
+  /* Mapbox custom controls position */
+  .mapboxgl-ctrl-top-right { top:60px; right:296px; transition:right 0.28s; }
+  .mapboxgl-ctrl-top-right.panel-closed { right:10px; }
+  .mapboxgl-ctrl-group { background:#020810ee !important; border:1px solid #00f0ff22 !important; }
+  .mapboxgl-ctrl-group button { background:#020810 !important; color:var(--accent) !important; }
+  .mapboxgl-ctrl-group button:hover { background:#051520 !important; }
+  .mapboxgl-ctrl-group button + button { border-top:1px solid #00f0ff15 !important; }
+  .mapboxgl-popup-content {
+    background:#030c14 !important; border:1px solid #00f0ff33 !important;
+    border-radius:6px !important; padding:12px !important;
+    color:var(--text) !important; font-family:'Share Tech Mono',monospace !important;
+    font-size:0.65rem !important; box-shadow:var(--glow) !important;
+    max-width:200px !important;
+  }
+  .mapboxgl-popup-tip { border-top-color:#00f0ff33 !important; border-bottom-color:#00f0ff33 !important; }
+
+  /* Draw control styling */
+  .mapbox-gl-draw_ctrl-draw-btn { filter:invert(0.7) sepia(1) saturate(4) hue-rotate(160deg); }
+
+  /* Coords bottom left */
+  #coords-bar {
+    position:absolute; bottom:80px; left:16px; z-index:10;
+    font-family:'Share Tech Mono',monospace; font-size:0.58rem;
+    color:var(--dim); letter-spacing:0.06em;
+    background:#020810cc; border:1px solid #00f0ff11;
+    border-radius:4px; padding:4px 10px;
+    backdrop-filter:blur(10px);
+  }
+
+  /* Stats bar top-right of map */
+  #stats-bar {
+    position:absolute; top:60px; left:66px; z-index:10;
+    display:flex; gap:10px;
+  }
+  .stat-chip {
+    display:flex; align-items:center; gap:6px;
+    background:#020810cc; border:1px solid #00f0ff11;
+    border-radius:4px; padding:4px 10px;
+    font-family:'Share Tech Mono',monospace; font-size:0.6rem;
+    color:var(--dim); backdrop-filter:blur(10px);
+  }
+  .stat-chip span { color:var(--accent); font-weight:bold; }
+
+  @media(max-width:640px){
+    #right-panel { width:100vw; top:auto; bottom:0; height:55vh; border-left:none; border-top:1px solid #00f0ff22; }
+    #right-panel.collapsed { transform:translateY(55vh); }
+    #layer-pills { right:10px; top:auto; bottom:calc(55vh + 80px); }
+    .mapboxgl-ctrl-top-right { right:10px !important; }
+    #bottom-toolbar { bottom:calc(55vh + 8px); }
+    #search-wrap { width:calc(100vw - 120px); left:66px; transform:none; }
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div id="toast"></div>
+
+<!-- SIDENAV -->
+<div id="sidenav-overlay" onclick="closeNav()"></div>
+<nav id="sidenav">
+  <div class="sidenav-header">
+    <svg class="sn-logo" viewBox="0 0 46 46" fill="none">
+      <polygon points="23,2 43,13 43,33 23,44 3,33 3,13" stroke="#00f0ff" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <circle cx="23" cy="23" r="7" fill="#00f0ff18" stroke="#00f0ff" stroke-width="1.5"/>
+      <circle cx="23" cy="23" r="3" fill="#00f0ff"/>
+    </svg>
+    <span>BLACK PANJI</span>
+  </div>
+  <div class="sidenav-items">
+    <a class="sn-item" href="https://blackpanji.netlify.app/black_panji_transcript_system.html" id="sn-voice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+        <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8"  y1="23" x2="16" y2="23"/>
+      </svg>
+      VOICE TX
+    </a>
+    <a class="sn-item" href="investigation.html" id="sn-intel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="11" cy="11" r="7"/>
+        <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+        <line x1="11" y1="8" x2="11" y2="14"/>
+        <line x1="8"  y1="11" x2="14" y2="11"/>
+      </svg>
+      INVESTIGATION
+    </a>
+    <a class="sn-item active" href="geo-intel.html" id="sn-map">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/>
+        <line x1="9" y1="3" x2="9" y2="18"/>
+        <line x1="15" y1="6" x2="15" y2="21"/>
+      </svg>
+      GEO INTEL
+    </a>
+    <a class="sn-item" href="about.html" id="sn-about">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <polygon points="12,2 22,7 22,17 12,22 2,17 2,7"/>
+        <circle cx="12" cy="12" r="3"/>
+        <line x1="12" y1="2" x2="12" y2="9"/>
+        <line x1="12" y1="15" x2="12" y2="22"/>
+      </svg>
+      BLACK PANJI
+    </a>
+  </div>
+  <div class="sidenav-footer">AEGIS SYSTEM v2.0</div>
+</nav>
+
+<button id="nav-toggle" onclick="toggleNav()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="tb-title">GEO INTEL // AEGIS</div>
+  <div class="tb-status">
+    <div class="tb-dot"></div>
+    <span id="coord-display">LAT — &nbsp; LNG —</span>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div id="search-wrap">
+  <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+    <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+  </svg>
+  <input id="search-input" type="text" placeholder="SEARCH LOCATION / COORDINATES...">
+  <div id="search-results"></div>
+</div>
+
+<!-- STATS BAR -->
+<div id="stats-bar">
+  <div class="stat-chip">PINS <span id="pin-count">0</span></div>
+  <div class="stat-chip">ZONES <span id="zone-count">0</span></div>
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<!-- LAYER PILLS -->
+<div id="layer-pills">
+  <div class="layer-pill active" data-style="dark" onclick="setMapStyle('dark')">
+    <div class="layer-pill-dot" style="background:#00f0ff"></div>TACTICAL DARK
+  </div>
+  <div class="layer-pill" data-style="satellite" onclick="setMapStyle('satellite')">
+    <div class="layer-pill-dot" style="background:#7b2fff"></div>SATELLITE
+  </div>
+  <div class="layer-pill" data-style="terrain" onclick="setMapStyle('terrain')">
+    <div class="layer-pill-dot" style="background:#00ff88"></div>TERRAIN
+  </div>
+</div>
+
+<!-- BOTTOM TOOLBAR -->
+<div id="bottom-toolbar">
+  <button class="tb-btn tb-btn-primary" onclick="enterPinMode()" id="btn-pin">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+      <circle cx="12" cy="9" r="2.5"/>
+    </svg>
+    DROP PIN
+  </button>
+  <button class="tb-btn tb-btn-purple" onclick="toggleDrawZone()" id="btn-zone">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M3 9h18M9 3v18"/>
+    </svg>
+    DRAW ZONE
+  </button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn tb-btn-neutral" onclick="exportData()" id="btn-export">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7,10 12,15 17,10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    EXPORT
+  </button>
+  <button class="tb-btn tb-btn-neutral" onclick="togglePanel()" id="btn-panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <line x1="15" y1="3" x2="15" y2="21"/>
+    </svg>
+    PANEL
+  </button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn tb-btn-danger" onclick="clearAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <polyline points="3,6 5,6 21,6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+    </svg>
+    CLEAR
+  </button>
+</div>
+
+<!-- COORDS BAR -->
+<div id="coords-bar">CURSOR: — , —</div>
+
+<!-- RIGHT PANEL -->
+<div id="right-panel">
+  <div class="rp-header">
+    <div class="rp-title">INTEL BOARD</div>
+    <button class="rp-close" onclick="togglePanel()">✕</button>
+  </div>
+  <div class="rp-tabs">
+    <button class="rp-tab active" onclick="switchTab('markers')">MARKERS</button>
+    <button class="rp-tab" onclick="switchTab('zones')">ZONES</button>
+  </div>
+  <div class="rp-body" id="rp-body">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>
+      <div>NO MARKERS PLOTTED</div>
+      <div>PRESS DROP PIN OR TAP MAP</div>
+    </div>
+  </div>
+</div>
+
+<!-- MARKER MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <div class="modal-title">// PLOT MARKER</div>
+    <div class="modal-field">
+      <label class="modal-label">DESIGNATION / CALLSIGN</label>
+      <input class="modal-input" id="m-name" type="text" placeholder="e.g. TANGO-01, SAFEHOUSE-A">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">THREAT LEVEL</label>
+      <select class="modal-select" id="m-threat">
+        <option value="high">HIGH — HOSTILE</option>
+        <option value="medium" selected>MEDIUM — SUSPECT</option>
+        <option value="low">LOW — FRIENDLY</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">COORDINATES</label>
+      <input class="modal-input" id="m-coords" type="text" readonly>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">INTEL NOTES</label>
+      <textarea class="modal-textarea" id="m-note" placeholder="Last seen, activity, assets, notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">ABORT</button>
+      <button class="modal-btn modal-btn-confirm" onclick="confirmMarker()">CONFIRM</button>
+    </div>
+  </div>
+</div>
+
+<script>
+mapboxgl.accessToken = '';
+
+// ── STATE ──
+let markers    = [];
+let zones      = [];
+let pinMode    = false;
+let drawMode   = false;
+let pendingLng = null, pendingLat = null;
+let activeTab  = 'markers';
+let panelOpen  = true;
+let currentStyle = 'dark';
+let searchTimer  = null;
+
+const STYLES = {
+  dark:      'mapbox://styles/neolingo/cmga9j5xh00bd01qo7uakglxy',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  terrain:   'mapbox://styles/mapbox/outdoors-v12'
+};
+
+// ── MAP INIT ──
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: STYLES.dark,
+  center: [101.686, 3.139],
+  zoom: 5,
+  projection: 'globe'
+});
+
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+map.addControl(new mapboxgl.ScaleControl({ unit:'metric' }), 'bottom-left');
+map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+// Draw plugin
+const draw = new MapboxDraw({
+  displayControlsDefault: false,
+  controls: { polygon:true, line_string:true, point:false, trash:true },
+  styles: [
+    { id:'gl-draw-polygon-fill', type:'fill', filter:['all',['==','$type','Polygon'],['!=','mode','static']],
+      paint:{ 'fill-color':'#7b2fff', 'fill-opacity':0.15 } },
+    { id:'gl-draw-polygon-stroke', type:'line', filter:['all',['==','$type','Polygon'],['!=','mode','static']],
+      paint:{ 'line-color':'#7b2fff', 'line-width':2 } },
+    { id:'gl-draw-line', type:'line', filter:['all',['==','$type','LineString'],['!=','mode','static']],
+      paint:{ 'line-color':'#ff2d78', 'line-width':2, 'line-dasharray':[4,2] } }
+  ]
+});
+map.addControl(draw, 'top-right');
+
+map.on('draw.create', onDrawCreate);
+map.on('draw.delete', onDrawDelete);
+
+// ── MAP EVENTS ──
+map.on('click', e => {
+  if (!pinMode) return;
+  pendingLng = e.lngLat.lng;
+  pendingLat = e.lngLat.lat;
+  openModal();
+});
+
+map.on('mousemove', e => {
+  const lng = e.lngLat.lng.toFixed(5);
+  const lat = e.lngLat.lat.toFixed(5);
+  document.getElementById('coords-bar').textContent = `CURSOR: ${lat} , ${lng}`;
+  document.getElementById('coord-display').textContent = `LAT ${lat}  LNG ${lng}`;
+});
+
+map.on('load', () => {
+  map.setFog({ color:'#020408', 'high-color':'#020814', 'horizon-blend':0.04 });
+});
+
+// ── PIN MODE ──
+function enterPinMode() {
+  pinMode = !pinMode;
+  const btn = document.getElementById('btn-pin');
+  if (pinMode) {
+    btn.classList.add('active');
+    map.getCanvas().style.cursor = 'crosshair';
+    toast('PIN MODE ACTIVE — CLICK MAP TO DROP');
+    drawMode = false;
+    document.getElementById('btn-zone').classList.remove('active');
+  } else {
+    btn.classList.remove('active');
+    map.getCanvas().style.cursor = '';
+  }
+}
+
+// ── DRAW ZONE ──
+function toggleDrawZone() {
+  drawMode = !drawMode;
+  const btn = document.getElementById('btn-zone');
+  if (drawMode) {
+    btn.classList.add('active');
+    draw.changeMode('draw_polygon');
+    toast('DRAW MODE — CLICK TO MARK ZONE PERIMETER');
+    pinMode = false;
+    document.getElementById('btn-pin').classList.remove('active');
+    map.getCanvas().style.cursor = 'crosshair';
+  } else {
+    btn.classList.remove('active');
+    draw.changeMode('simple_select');
+    map.getCanvas().style.cursor = '';
+  }
+}
+
+function onDrawCreate(e) {
+  const feature = e.features[0];
+  const type = feature.geometry.type === 'Polygon' ? 'POLYGON' : 'ROUTE';
+  const name = prompt(`ZONE DESIGNATION (${type}):`) || `ZONE-${String(zones.length+1).padStart(2,'0')}`;
+  zones.push({ id: feature.id, name, type });
+  drawMode = false;
+  document.getElementById('btn-zone').classList.remove('active');
+  map.getCanvas().style.cursor = '';
+  draw.changeMode('simple_select');
+  updateZoneCount();
+  renderPanel();
+  toast(`ZONE PLOTTED: ${name}`);
+}
+
+function onDrawDelete() {
+  const ids = draw.getAll().features.map(f => f.id);
+  zones = zones.filter(z => ids.includes(z.id));
+  updateZoneCount();
+  renderPanel();
+}
+
+// ── MODAL ──
+function openModal() {
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-threat').value = 'medium';
+  document.getElementById('m-note').value = '';
+  document.getElementById('m-coords').value =
+    `${pendingLat.toFixed(5)}, ${pendingLng.toFixed(5)}`;
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('m-name').focus(), 100);
+  pinMode = false;
+  document.getElementById('btn-pin').classList.remove('active');
+  map.getCanvas().style.cursor = '';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function confirmMarker() {
+  const name    = document.getElementById('m-name').value.trim() || `TARGET-${String(markers.length+1).padStart(2,'0')}`;
+  const threat  = document.getElementById('m-threat').value;
+  const note    = document.getElementById('m-note').value.trim();
+  const lng     = pendingLng;
+  const lat     = pendingLat;
+
+  const colors  = { high:'#ff2d78', medium:'#ffd700', low:'#00ff88' };
+  const color   = colors[threat];
+
+  // Mapbox marker
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.75 14 22 14 22s14-12.25 14-22C28 6.27 21.73 0 14 0z" fill="${color}22" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="4" fill="${color}" opacity="0.9"/>
+    </svg>`;
+  el.style.cssText = 'cursor:pointer;filter:drop-shadow(0 0 6px '+color+'88)';
+
+  const mbMarker = new mapboxgl.Marker({ element:el })
+    .setLngLat([lng, lat])
+    .addTo(map);
+
+  const popup = new mapboxgl.Popup({ offset:30, closeButton:false })
+    .setHTML(`<div style="color:#00f0ff;font-weight:bold;margin-bottom:4px">${name}</div>
+              <div style="color:#3a6070;margin-bottom:3px">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+              ${note ? `<div style="color:#6a9ab0;margin-top:5px">${note}</div>` : ''}`);
+
+  mbMarker.setPopup(popup);
+  el.addEventListener('click', e => { e.stopPropagation(); mbMarker.togglePopup(); });
+
+  const id = Date.now();
+  markers.push({ id, name, threat, note, lat, lng, mbMarker });
+
+  closeModal();
+  updatePinCount();
+  renderPanel();
+  toast(`MARKER PLOTTED: ${name}`);
+}
+
+// ── PANEL ──
+function togglePanel() {
+  panelOpen = !panelOpen;
+  const panel     = document.getElementById('right-panel');
+  const pills     = document.getElementById('layer-pills');
+  const ctrlRight = document.querySelector('.mapboxgl-ctrl-top-right');
+  if (panelOpen) {
+    panel.classList.remove('collapsed');
+    pills.classList.remove('panel-closed');
+    if (ctrlRight) ctrlRight.classList.remove('panel-closed');
+  } else {
+    panel.classList.add('collapsed');
+    pills.classList.add('panel-closed');
+    if (ctrlRight) ctrlRight.classList.add('panel-closed');
+  }
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.rp-tab').forEach((t,i) => {
+    t.classList.toggle('active', (i===0 && tab==='markers') || (i===1 && tab==='zones'));
+  });
+  renderPanel();
+}
+
+function renderPanel() {
+  const body = document.getElementById('rp-body');
+  if (activeTab === 'markers') {
+    if (markers.length === 0) {
+      body.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          <circle cx="12" cy="9" r="2.5"/>
+        </svg>
+        <div>NO MARKERS PLOTTED</div><div>PRESS DROP PIN OR CLICK MAP</div></div>`;
+      return;
+    }
+    body.innerHTML = markers.map(m => `
+      <div class="marker-card" id="mc-${m.id}">
+        <div class="mc-top">
+          <div class="mc-name">${m.name}</div>
+          <div class="mc-threat threat-${m.threat}">${m.threat.toUpperCase()}</div>
+        </div>
+        <div class="mc-coords">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>
+        ${m.note ? `<div class="mc-note">${m.note}</div>` : ''}
+        <div class="mc-actions">
+          <button class="mc-btn mc-btn-fly" onclick="flyToMarker(${m.id})">FLY TO</button>
+          <button class="mc-btn mc-btn-del" onclick="deleteMarker(${m.id})">REMOVE</button>
+        </div>
+      </div>`).join('');
+  } else {
+    if (zones.length === 0) {
+      body.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18M9 3v18"/>
+        </svg>
+        <div>NO ZONES DRAWN</div><div>PRESS DRAW ZONE TO BEGIN</div></div>`;
+      return;
+    }
+    body.innerHTML = zones.map(z => `
+      <div class="zone-card">
+        <div class="zc-top">
+          <div class="zc-name">${z.name}</div>
+          <button class="zc-del" onclick="deleteZone('${z.id}')">✕</button>
+        </div>
+        <div class="zc-type">${z.type}</div>
+      </div>`).join('');
+  }
+}
+
+function flyToMarker(id) {
+  const m = markers.find(x => x.id === id);
+  if (!m) return;
+  map.flyTo({ center:[m.lng, m.lat], zoom:14, speed:1.2 });
+  setTimeout(() => m.mbMarker.togglePopup(), 1000);
+}
+
+function deleteMarker(id) {
+  const idx = markers.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  markers[idx].mbMarker.remove();
+  markers.splice(idx, 1);
+  updatePinCount();
+  renderPanel();
+  toast('MARKER REMOVED');
+}
+
+function deleteZone(id) {
+  draw.delete(id);
+  zones = zones.filter(z => z.id !== id);
+  updateZoneCount();
+  renderPanel();
+  toast('ZONE REMOVED');
+}
+
+// ── MAP STYLE ──
+function setMapStyle(style) {
+  currentStyle = style;
+  document.querySelectorAll('.layer-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.style === style);
+  });
+  map.setStyle(STYLES[style]);
+  map.once('style.load', () => {
+    if (style === 'dark') map.setFog({ color:'#020408', 'high-color':'#020814', 'horizon-blend':0.04 });
+    toast('LAYER: ' + style.toUpperCase());
+  });
+}
+
+// ── SEARCH ──
+document.getElementById('search-input').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  const q = this.value.trim();
+  if (q.length < 3) { document.getElementById('search-results').style.display='none'; return; }
+
+  // Check if it's coordinates
+  const coordMatch = q.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+  if (coordMatch) {
+    const lat = parseFloat(coordMatch[1]), lng = parseFloat(coordMatch[2]);
+    document.getElementById('search-results').style.display = 'block';
+    document.getElementById('search-results').innerHTML =
+      `<div class="sr-item" onclick="flyTo(${lng},${lat},12)">
+        📍 FLY TO COORDINATES: ${lat}, ${lng}</div>`;
+    return;
+  }
+
+  searchTimer = setTimeout(() => geocodeSearch(q), 400);
+});
+
+async function geocodeSearch(q) {
+  try {
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?access_token=${mapboxgl.accessToken}&limit=5`
+    );
+    const data = await res.json();
+    const results = document.getElementById('search-results');
+    if (!data.features || data.features.length === 0) {
+      results.style.display = 'none'; return;
+    }
+    results.style.display = 'block';
+    results.innerHTML = data.features.map(f =>
+      `<div class="sr-item" onclick="flyTo(${f.center[0]},${f.center[1]},12)">${f.place_name}</div>`
+    ).join('');
+  } catch(e) { console.error(e); }
+}
+
+document.getElementById('search-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('search-results').style.display = 'none';
+    this.value = '';
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('search-wrap').contains(e.target)) {
+    document.getElementById('search-results').style.display = 'none';
+  }
+});
+
+function flyTo(lng, lat, zoom) {
+  map.flyTo({ center:[lng, lat], zoom, speed:1.4 });
+  document.getElementById('search-results').style.display = 'none';
+  document.getElementById('search-input').value = '';
+}
+
+// ── EXPORT ──
+function exportData() {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    classification: 'CONFIDENTIAL // BLACK PANJI AEGIS',
+    markers: markers.map(m => ({
+      id: m.id, name: m.name, threat: m.threat,
+      coordinates: { lat: m.lat, lng: m.lng },
+      notes: m.note
+    })),
+    zones: zones.map(z => ({ id: z.id, name: z.name, type: z.type }))
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `geo-intel-export-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('INTEL EXPORTED — SECURE FILE GENERATED');
+}
+
+// ── CLEAR ──
+function clearAll() {
+  if (!markers.length && !zones.length) { toast('BOARD IS ALREADY CLEAR'); return; }
+  if (!confirm('CLEAR ALL MARKERS AND ZONES? THIS CANNOT BE UNDONE.')) return;
+  markers.forEach(m => m.mbMarker.remove());
+  markers = [];
+  draw.deleteAll();
+  zones = [];
+  updatePinCount(); updateZoneCount();
+  renderPanel();
+  toast('BOARD CLEARED');
+}
+
+// ── HELPERS ──
+function updatePinCount()  { document.getElementById('pin-count').textContent  = markers.length; }
+function updateZoneCount() { document.getElementById('zone-count').textContent = zones.length; }
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ── NAV ──
+function toggleNav() {
+  document.getElementById('sidenav').classList.toggle('open');
+  document.getElementById('sidenav-overlay').classList.toggle('open');
+  document.getElementById('nav-toggle').classList.toggle('open');
+}
+function closeNav() {
+  document.getElementById('sidenav').classList.remove('open');
+  document.getElementById('sidenav-overlay').classList.remove('open');
+  document.getElementById('nav-toggle').classList.remove('open');
+}
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'p' || e.key === 'P') enterPinMode();
+  if (e.key === 'z' || e.key === 'Z') toggleDrawZone();
+  if (e.key === 'Escape') { pinMode=false; map.getCanvas().style.cursor=''; document.getElementById('btn-pin').classList.remove('active'); }
+});
+</script>
+</body>
+</html>
