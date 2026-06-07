@@ -974,7 +974,7 @@ map.on('click', e => {
     const dy = e.point.y - _downPoint.y;
     if (Math.sqrt(dx*dx + dy*dy) > 5) return;
   }
-  dropPinAt(e.lngLat.lng, e.lngLat.lat);
+  dropPinAt(e.lngLat.lng, e.lngLat.lat, e.point);
 });
 
 map.on('load', () => {
@@ -1041,7 +1041,7 @@ function enterPinMode() {
 }
 
 // ── INSTANT PIN DROP — no modal, drops immediately ──
-async function dropPinAt(lng, lat) {
+async function dropPinAt(lng, lat, clickPoint) {
   const num     = String(markers.length + 1).padStart(2, '0');
   const name    = `TARGET-${num}`;
   const threat  = 'medium';
@@ -1086,43 +1086,86 @@ async function dropPinAt(lng, lat) {
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, 80);
 
-  // Reverse geocode — all types so POI/shop names appear
+  // ── STEP 1: Read the name directly from rendered map tiles ──
+  // This captures exactly what the map shows — shop names, landmarks,
+  // camera icons, tourist spots — things the geocoding API misses.
+  let tileLabel = null;
+  if (clickPoint && map) {
+    try {
+      // Query a small bbox around the click point (5px radius)
+      const bbox = [
+        [clickPoint.x - 5, clickPoint.y - 5],
+        [clickPoint.x + 5, clickPoint.y + 5]
+      ];
+      const features = map.queryRenderedFeatures(bbox);
+      // Walk features — prefer ones with a meaningful name property
+      for (const feat of features) {
+        const p = feat.properties || {};
+        // Mapbox tile layers use these property names for labels
+        const name = p.name_en || p.name || p.name_local ||
+                     p.ref || p.brand || p.operator;
+        // Skip generic layer noise (roads with just numbers, boundaries etc.)
+        if (name && name.length > 1 && !/^\d+$/.test(name)) {
+          tileLabel = name;
+          break;
+        }
+      }
+    } catch(e) { /* queryRenderedFeatures can throw if map not ready */ }
+  }
+
+  // ── STEP 2: Reverse geocode for full address context ──
   try {
     const res  = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
-      `?access_token=${mapboxgl.accessToken}&types=poi,address,neighborhood,locality,place,district,region,country&limit=1&language=en`
+      `?access_token=${mapboxgl.accessToken}` +
+      `&types=poi,address,neighborhood,locality,place,district,region,country` +
+      `&limit=1&language=en`
     );
     const data = await res.json();
     if (data.features && data.features.length > 0) {
       const f   = data.features[0];
       const ctx = f.context || [];
 
-      // Pull named parts from context
-      const poi          = f.place_type[0] === 'poi'          ? f.text : null;
-      const address      = f.place_type[0] === 'address'      ? f.text : null;
-      const neighborhood = ctx.find(c => c.id.startsWith('neighborhood'))?.text;
+      // Extract each admin level from context
+      const geocodePoi   = f.place_type[0] === 'poi'     ? f.text : null;
+      const geocodeAddr  = f.place_type[0] === 'address' ? f.text : null;
       const locality     = ctx.find(c => c.id.startsWith('locality'))?.text;
-      const place        = ctx.find(c => c.id.startsWith('place'))?.text;       // city
+      const neighborhood = ctx.find(c => c.id.startsWith('neighborhood'))?.text;
+      const place        = ctx.find(c => c.id.startsWith('place'))?.text;    // city
       const district     = ctx.find(c => c.id.startsWith('district'))?.text;
-      const region       = ctx.find(c => c.id.startsWith('region'))?.text;      // state
+      const region       = ctx.find(c => c.id.startsWith('region'))?.text;   // state
       const country      = ctx.find(c => c.id.startsWith('country'))?.text;
 
-      // Build: "Shop Name, Street, City, State, Country"
-      const parts = [
-        poi || address,
+      // Prefer tile label (exact map name) over geocoding POI name
+      const poiName = tileLabel || geocodePoi || geocodeAddr;
+
+      // Build full address string bottom-up, deduplicating tile label
+      const addrParts = [
         neighborhood || locality,
         place || district,
         region,
         country
       ].filter(Boolean);
 
-      markerObj.place    = parts.join(', ');
-      markerObj.placePoi = poi || address || null;   // short name for card header
+      // If tile label matches the geocode POI name, don't repeat it
+      const fullAddr = addrParts.join(', ');
+
+      markerObj.placePoi = poiName || null;
+      markerObj.place    = poiName
+        ? `${poiName}, ${fullAddr}`
+        : fullAddr || `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+
+    } else if (tileLabel) {
+      // Geocoding returned nothing but we have a tile name
+      markerObj.placePoi = tileLabel;
+      markerObj.place    = tileLabel;
     } else {
       markerObj.place = `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
     }
   } catch(e) {
-    markerObj.place = 'LOCATION UNKNOWN';
+    // Geocoding failed — use tile label if we have it, else coordinates
+    markerObj.place    = tileLabel || 'LOCATION UNKNOWN';
+    markerObj.placePoi = tileLabel || null;
   }
   renderPanel();
 }
