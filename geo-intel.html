@@ -263,6 +263,11 @@
   .mc-btn-del  { background:#ff2d7811; border-color:#ff2d7844; color:#ff2d78; }
   .mc-btn-del:hover { background:#ff2d7822; }
 
+  .mc-poi {
+    font-family:'Share Tech Mono',monospace; font-size:0.68rem;
+    color:#00f0ff; margin-bottom:2px; font-weight:bold;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
   .mc-place {
     font-family:'Share Tech Mono',monospace; font-size:0.58rem;
     color:#4a8aa0; margin-bottom:3px;
@@ -1081,16 +1086,41 @@ async function dropPinAt(lng, lat) {
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, 80);
 
-  // Reverse geocode in background
+  // Reverse geocode — all types so POI/shop names appear
   try {
     const res  = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
-      `?access_token=${mapboxgl.accessToken}&types=place,district,region,country&limit=1`
+      `?access_token=${mapboxgl.accessToken}&types=poi,address,neighborhood,locality,place,district,region,country&limit=1&language=en`
     );
     const data = await res.json();
-    markerObj.place = (data.features && data.features.length > 0)
-      ? data.features[0].place_name
-      : `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+    if (data.features && data.features.length > 0) {
+      const f   = data.features[0];
+      const ctx = f.context || [];
+
+      // Pull named parts from context
+      const poi          = f.place_type[0] === 'poi'          ? f.text : null;
+      const address      = f.place_type[0] === 'address'      ? f.text : null;
+      const neighborhood = ctx.find(c => c.id.startsWith('neighborhood'))?.text;
+      const locality     = ctx.find(c => c.id.startsWith('locality'))?.text;
+      const place        = ctx.find(c => c.id.startsWith('place'))?.text;       // city
+      const district     = ctx.find(c => c.id.startsWith('district'))?.text;
+      const region       = ctx.find(c => c.id.startsWith('region'))?.text;      // state
+      const country      = ctx.find(c => c.id.startsWith('country'))?.text;
+
+      // Build: "Shop Name, Street, City, State, Country"
+      const parts = [
+        poi || address,
+        neighborhood || locality,
+        place || district,
+        region,
+        country
+      ].filter(Boolean);
+
+      markerObj.place    = parts.join(', ');
+      markerObj.placePoi = poi || address || null;   // short name for card header
+    } else {
+      markerObj.place = `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+    }
   } catch(e) {
     markerObj.place = 'LOCATION UNKNOWN';
   }
@@ -1189,6 +1219,7 @@ function renderPanel() {
           <div class="mc-name">${m.name}</div>
           <div class="mc-threat threat-${m.threat}">${m.threat.toUpperCase()}</div>
         </div>
+        ${m.placePoi ? `<div class="mc-poi">🏪 ${m.placePoi}</div>` : ''}
         <div class="mc-place">📍 ${m.place || '—'}</div>
         <div class="mc-coords">${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>
         <div class="mc-time">${m.timestamp || ''}</div>
@@ -1261,8 +1292,10 @@ function setMapStyle(style) {
 }
 
 // ── SEARCH ──
+(function() {
 const searchInput   = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
+if (!searchInput || !searchResults) return;
 
 searchInput.addEventListener('input', function() {
   clearTimeout(searchTimer);
@@ -1325,10 +1358,10 @@ searchInput.addEventListener('keydown', function(e) {
 });
 
 document.addEventListener('click', e => {
-  if (!document.getElementById('search-wrap').contains(e.target)) {
-    searchResults.style.display = 'none';
-  }
+  const sw = document.getElementById('search-wrap');
+  if (sw && !sw.contains(e.target)) searchResults.style.display = 'none';
 });
+})(); // end search IIFE
 
 // flyTo defined inside startMap — global wrapper below at bottom of file
 
@@ -1382,7 +1415,13 @@ function openDetail(id) {
 
   document.getElementById('dm-name').textContent   = m.name;
   document.getElementById('dm-coords').textContent = `${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}`;
-  document.getElementById('dm-place').textContent  = m.place || '—';
+  // Show POI name + full address in detail modal
+  const placeEl = document.getElementById('dm-place');
+  if (m.placePoi) {
+    placeEl.innerHTML = `<span style="color:#00f0ff;font-weight:bold;">${m.placePoi}</span><br><span style="color:#3a6a80;font-size:0.62rem;">${m.place || ''}</span>`;
+  } else {
+    placeEl.textContent = m.place || '—';
+  }
   document.getElementById('dm-time').textContent   = m.timestamp || '—';
 
   const badge = document.getElementById('dm-threat-badge');
