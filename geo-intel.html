@@ -870,15 +870,6 @@ function confirmMarker() {
 }
 
 // ── PANEL ──
-function togglePanel() {
-  panelOpen = !panelOpen;
-  const panel = document.getElementById('right-panel');
-  if (panelOpen) {
-    panel.classList.remove('collapsed');
-  } else {
-    panel.classList.add('collapsed');
-  }
-}
 
 function switchTab(tab) {
   activeTab = tab;
@@ -1073,7 +1064,9 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-// ── NAV ──
+} // end startMap
+
+// ── NAV + PANEL (global scope) ──
 function toggleNav() {
   document.getElementById('sidenav').classList.toggle('open');
   document.getElementById('sidenav-overlay').classList.toggle('open');
@@ -1084,8 +1077,15 @@ function closeNav() {
   document.getElementById('sidenav-overlay').classList.remove('open');
   document.getElementById('nav-toggle').classList.remove('open');
 }
-
-} // end startMap
+function togglePanel() {
+  panelOpen = !panelOpen;
+  const panel = document.getElementById('right-panel');
+  if (panelOpen) {
+    panel.classList.remove('collapsed');
+  } else {
+    panel.classList.add('collapsed');
+  }
+}
 
 // ── KEYBOARD SHORTCUTS ──
 document.addEventListener('keydown', e => {
